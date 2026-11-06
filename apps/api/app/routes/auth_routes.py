@@ -7,6 +7,7 @@ from app.services.auth_service import AuthService
 from app.controllers.auth_controller import AuthController
 from app.schemas.user import UserCreate, UserResponse, Token
 from app.core.dependencies import get_current_user, require_role
+from app.core.rate_limiter import RateLimiter
 from app.models.user import UserModel
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -16,7 +17,12 @@ def get_auth_controller(db: AsyncSession = Depends(get_db)) -> AuthController:
     return AuthController(AuthService(db))
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RateLimiter(max_requests=10, window_seconds=60, scope="auth:register"))],
+)
 async def register(
     user_in: UserCreate,
     controller: AuthController = Depends(get_auth_controller)
@@ -24,7 +30,11 @@ async def register(
     return await controller.register(user_in)
 
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login",
+    response_model=Token,
+    dependencies=[Depends(RateLimiter(max_requests=10, window_seconds=60, scope="auth:login"))],
+)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     controller: AuthController = Depends(get_auth_controller)
