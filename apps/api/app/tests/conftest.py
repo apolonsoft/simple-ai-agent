@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.pool import StaticPool
 
 import app.models  # Ensure all models are registered on Base.metadata
-from app.db.session import Base, get_db
+from app.db.session import Base, get_db, get_session_factory
 from app.main import app as fastapi_app
 
 # Isolated in-memory async SQLite for test execution
@@ -48,6 +48,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[httpx.AsyncClient, 
         yield db_session
 
     fastapi_app.dependency_overrides[get_db] = override_get_db
+    fastapi_app.dependency_overrides[get_session_factory] = lambda: TestingAsyncSessionLocal
 
     transport = ASGITransport(app=fastapi_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as async_client:
