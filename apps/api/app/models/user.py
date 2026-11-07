@@ -1,9 +1,13 @@
 # app/models/user.py
 import uuid
+from typing import List, TYPE_CHECKING
 from sqlalchemy import String, Boolean, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 from app.models.base import TimestampMixin
+
+if TYPE_CHECKING:
+    from app.models.chat import ChatSessionModel
 
 
 class UserModel(Base, TimestampMixin):
@@ -18,3 +22,11 @@ class UserModel(Base, TimestampMixin):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="user", nullable=False)  # "user" | "admin"
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Relationship to user's chat sessions
+    chat_sessions: Mapped[List["ChatSessionModel"]] = relationship(
+        "ChatSessionModel",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )

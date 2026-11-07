@@ -1,4 +1,9 @@
-from app.models.item import ItemModel
+# app/models/__init__.py
 from app.models.user import UserModel
+from app.models.chat import ChatSessionModel, ChatMessageModel
 
-__all__ = ["ItemModel", "UserModel"]
+__all__ = [
+    "UserModel",
+    "ChatSessionModel",
+    "ChatMessageModel",
+]
