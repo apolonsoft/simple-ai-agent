@@ -1,4 +1,4 @@
-.PHONY: help up down logs verify test-api dev-api migrate
+.PHONY: help up down logs verify test-api dev-api migrate dev-web test-web build-web test-all
 
 help:
 	@echo "Available commands:"
@@ -6,9 +6,13 @@ help:
 	@echo "  make down       - Stop local infrastructure"
 	@echo "  make logs       - Tail logs for all containers"
 	@echo "  make verify     - Verify monorepo layout and service connectivity"
-	@echo "  make test-api   - Run API automated test suite (Pytest)"
+	@echo "  make test-api   - Run FastAPI test suite (Pytest)"
 	@echo "  make dev-api    - Run FastAPI backend development server"
 	@echo "  make migrate    - Apply database migrations with Alembic"
+	@echo "  make dev-web    - Run Angular development server (pnpm start with proxy)"
+	@echo "  make test-web   - Run Angular test suite (Vitest)"
+	@echo "  make build-web  - Build production Angular frontend bundle"
+	@echo "  make test-all   - Run both backend and frontend test suites"
 
 up:
 	docker compose up -d
@@ -22,6 +26,7 @@ logs:
 verify:
 	python3 scripts/verify_infra.py
 
+# Backend
 test-api:
 	cd apps/api && .venv/bin/pytest -v
 
@@ -30,3 +35,16 @@ migrate:
 
 dev-api:
 	cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000
+
+# Frontend (using pnpm and node 24)
+dev-web:
+	pnpm --prefix apps/web start
+
+test-web:
+	pnpm --prefix apps/web test --watch=false
+
+build-web:
+	pnpm --prefix apps/web build
+
+# Monorepo CI verification
+test-all: test-api test-web
