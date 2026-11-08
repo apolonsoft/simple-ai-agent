@@ -1,14 +1,18 @@
 # app/services/chat_service.py
 import uuid
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.chat import ChatSessionModel, ChatMessageModel
 
+if TYPE_CHECKING:
+    from app.services.chat_cache_service import ChatCacheService
+
 
 class ChatService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, cache_service: Optional["ChatCacheService"] = None):
         self.db = db
+        self.cache_service = cache_service
 
     async def create_session(
         self,
@@ -60,6 +64,10 @@ class ChatService:
             return False
         await self.db.delete(session)
         await self.db.commit()
+
+        if self.cache_service is not None:
+            await self.cache_service.invalidate(session_id)
+
         return True
 
     async def add_message(

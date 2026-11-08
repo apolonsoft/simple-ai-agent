@@ -9,6 +9,7 @@ from app.core.dependencies import get_current_user
 from app.core.rate_limiter import RateLimiter
 from app.models.user import UserModel
 from app.services.chat_service import ChatService
+from app.services.chat_cache_service import ChatCacheService
 from app.services.chat_stream_service import ChatStreamService
 from app.controllers.chat_controller import ChatController
 from app.schemas.chat import (
@@ -22,8 +23,15 @@ from app.schemas.chat import (
 router = APIRouter(prefix="/chats", tags=["Chat"])
 
 
-def get_chat_controller(db: AsyncSession = Depends(get_db)) -> ChatController:
-    return ChatController(ChatService(db))
+def get_chat_cache_service() -> ChatCacheService:
+    return ChatCacheService()
+
+
+def get_chat_controller(
+    db: AsyncSession = Depends(get_db),
+    cache_service: ChatCacheService = Depends(get_chat_cache_service),
+) -> ChatController:
+    return ChatController(ChatService(db, cache_service=cache_service))
 
 
 @router.post(
@@ -93,8 +101,11 @@ async def get_chat_messages(
     return await controller.get_messages(session_id, current_user.id)
 
 
-def get_chat_stream_service(session_factory=Depends(get_session_factory)) -> ChatStreamService:
-    return ChatStreamService(session_factory=session_factory)
+def get_chat_stream_service(
+    session_factory=Depends(get_session_factory),
+    cache_service: ChatCacheService = Depends(get_chat_cache_service),
+) -> ChatStreamService:
+    return ChatStreamService(session_factory=session_factory, cache_service=cache_service)
 
 
 @router.post(

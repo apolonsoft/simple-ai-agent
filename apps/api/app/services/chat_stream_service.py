@@ -8,6 +8,7 @@ from app.db.session import AsyncSessionLocal
 from app.models.chat import ChatSessionModel
 from app.providers.factory import get_llm_provider
 from app.services.chat_service import ChatService
+from app.services.chat_cache_service import ChatCacheService
 from app.services.memory_manager import MemoryManager
 
 logger = logging.getLogger(__name__)
@@ -18,15 +19,18 @@ class ChatStreamService:
     High-concurrency streaming coordinator.
     Decouples database transactions from long-running LLM inference to protect
     the async database connection pool against starvation under high traffic.
+    Leverages Redis conversation context caching to minimize PostgreSQL query load.
     """
 
     def __init__(
         self,
         session_factory=AsyncSessionLocal,
         memory_manager: Optional[MemoryManager] = None,
+        cache_service: Optional[ChatCacheService] = None,
     ):
         self.session_factory = session_factory
         self.memory_manager = memory_manager or MemoryManager()
+        self.cache_service = cache_service or ChatCacheService()
 
     async def stream_chat(
         self,
@@ -37,10 +41,13 @@ class ChatStreamService:
         custom_system_prompt: Optional[str] = None,
     ) -> AsyncGenerator[dict, None]:
         # ==============================================================================
-        # 1. PRE-INFERENCE PHASE: Validate, save user turn, build memory window (~5ms DB time)
+        # 1. PRE-INFERENCE PHASE: Check Redis cache, validate session, save turn (~5ms DB time)
         # ==============================================================================
+        # Check active session context from Redis first (0ms DB load)
+        cached_history = await self.cache_service.get_messages(session_id)
+
         async with self.session_factory() as db:
-            chat_service = ChatService(db)
+            chat_service = ChatService(db, cache_service=self.cache_service)
             session = await chat_service.get_session(session_id, user_id)
             if not session:
                 yield {
@@ -49,16 +56,25 @@ class ChatStreamService:
                 }
                 return
 
-            # Fetch existing message history before appending current message
-            prior_history = await chat_service.get_messages(session_id, user_id) or []
+            if cached_history is not None:
+                # Cache hit: Avoid PostgreSQL message SELECT query
+                prior_history = cached_history
+            else:
+                # Cache miss: Fetch from PostgreSQL and populate Redis cache
+                db_messages = await chat_service.get_messages(session_id, user_id) or []
+                prior_history = db_messages
+                await self.cache_service.set_messages(session_id, db_messages)
 
-            # Save the new user prompt
-            await chat_service.add_message(
+            # Save the new user prompt to PostgreSQL
+            saved_user_msg = await chat_service.add_message(
                 session_id=session_id,
                 user_id=user_id,
                 role="user",
                 content=user_content,
             )
+
+            # Append user message to Redis cache
+            await self.cache_service.append_message(session_id, saved_user_msg or {"role": "user", "content": user_content})
 
             # Build sliding-window context
             llm_messages = self.memory_manager.build_context(
@@ -98,7 +114,7 @@ class ChatStreamService:
         if full_response_text:
             try:
                 async with self.session_factory() as db:
-                    chat_service = ChatService(db)
+                    chat_service = ChatService(db, cache_service=self.cache_service)
                     saved_msg = await chat_service.add_message(
                         session_id=session_id,
                         user_id=user_id,
@@ -107,6 +123,8 @@ class ChatStreamService:
                     )
                     if saved_msg:
                         assistant_message_id = str(saved_msg.id)
+                        # Append assistant message to Redis cache
+                        await self.cache_service.append_message(session_id, saved_msg)
             except Exception as exc:
                 logger.error(f"Failed to persist assistant message: {exc}", exc_info=True)
 

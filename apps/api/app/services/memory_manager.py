@@ -46,9 +46,10 @@ class MemoryManager:
         windowed_history = history[-self.window_size:] if len(history) > self.window_size else history
 
         for msg in windowed_history:
-            # Map role ensuring only valid canonical roles
-            if msg.role in ("user", "assistant", "system"):
-                context.append(LLMMessage(role=msg.role, content=msg.content))
+            role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", None)
+            content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", "")
+            if role in ("user", "assistant", "system"):
+                context.append(LLMMessage(role=role, content=content))
 
         # Append incoming message if provided
         if new_user_message:
