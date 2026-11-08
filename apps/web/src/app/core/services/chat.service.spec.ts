@@ -214,6 +214,40 @@ describe('ChatService', () => {
     expect(service.isStreaming()).toBe(false);
   });
 
+  it('should consume real-time SSE stream chunks with CRLF delimiters from sse-starlette and assign message id', async () => {
+    localStorage.setItem('token', 'jwt-test-token');
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(encoder.encode('event: chunk\r\ndata: {"content": "Hello"}\r\n\r\n'));
+        controller.enqueue(encoder.encode('event: chunk\r\ndata: {"content": " world"}\r\n\r\n'));
+        controller.enqueue(encoder.encode('event: done\r\ndata: {"status": "completed", "message_id": "msg-uuid-999"}\r\n\r\n'));
+        controller.close();
+      },
+    });
+
+    const mockResponse = new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse);
+
+    await service.sendMessageStream('session-1', 'Hello server');
+
+    const msgs = service.messages();
+    expect(msgs.length).toBe(2);
+    expect(msgs[0]).toMatchObject({ role: 'user', content: 'Hello server' });
+    expect(msgs[1]).toMatchObject({
+      role: 'assistant',
+      content: 'Hello world',
+      id: 'msg-uuid-999',
+      isStreaming: false,
+    });
+    expect(service.isStreaming()).toBe(false);
+  });
+
   it('should handle SSE server error gracefully', async () => {
     const mockResponse = new Response(JSON.stringify({ detail: 'Provider API key is invalid' }), {
       status: 500,

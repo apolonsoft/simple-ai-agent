@@ -170,7 +170,7 @@ export class ChatService {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const blocks = buffer.split('\n\n');
+        const blocks = buffer.split(/(?:\r\n\r\n|\r\r|\n\n)/);
         buffer = blocks.pop() || '';
 
         for (const block of blocks) {
@@ -181,7 +181,13 @@ export class ChatService {
       }
 
       if (buffer.trim()) {
-        this.processSseBlock(buffer);
+        const remainingBlocks = buffer.split(/(?:\r\n\r\n|\r\r|\n\n)/);
+        for (const block of remainingBlocks) {
+          if (block.trim()) {
+            this.processSseBlock(block);
+          }
+        }
+        buffer = '';
       }
     } catch (error: any) {
       if (error?.name === 'AbortError') {
@@ -209,13 +215,14 @@ export class ChatService {
     let eventType = 'chunk';
     let dataStr = '';
 
-    const lines = block.split('\n');
-    for (const line of lines) {
-      const trimmedLine = line.trim();
-      if (trimmedLine.startsWith('event:')) {
-        eventType = trimmedLine.replace('event:', '').trim();
-      } else if (trimmedLine.startsWith('data:')) {
-        dataStr = trimmedLine.replace('data:', '').trim();
+    const lines = block.split(/\r?\n/);
+    for (const rawLine of lines) {
+      const line = rawLine.trimEnd();
+      if (line.startsWith('event:')) {
+        eventType = line.slice(6).trim();
+      } else if (line.startsWith('data:')) {
+        const rawData = line.slice(5);
+        dataStr = rawData.startsWith(' ') ? rawData.slice(1) : rawData;
       }
     }
 
@@ -226,6 +233,9 @@ export class ChatService {
       if (eventType === 'error' || parsed.error) {
         this.handleStreamError(parsed.error || 'Generation error');
       } else if (eventType === 'done' || parsed.status === 'completed') {
+        if (parsed.message_id) {
+          this.updateAssistantMessageId(parsed.message_id);
+        }
         this.finalizeAssistantMessage();
       } else if (eventType === 'chunk' || parsed.content !== undefined) {
         if (parsed.content) {
@@ -237,6 +247,22 @@ export class ChatService {
         this.appendAssistantToken(dataStr);
       }
     }
+  }
+
+  private updateAssistantMessageId(messageId: string): void {
+    this.messages.update((list) => {
+      if (list.length === 0) return list;
+      const lastIdx = list.length - 1;
+      const last = list[lastIdx];
+      if (last.role === 'assistant') {
+        const updated: ChatMessage = {
+          ...last,
+          id: messageId,
+        };
+        return [...list.slice(0, lastIdx), updated];
+      }
+      return list;
+    });
   }
 
   private appendAssistantToken(token: string): void {
