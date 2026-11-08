@@ -22,6 +22,22 @@ export const routes: Routes = [
       import('./features/chat/chat-layout/chat-layout.component').then(
         (m) => m.ChatLayoutComponent
       ),
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('./features/chat/chat-window/chat-window.component').then(
+            (m) => m.ChatWindowComponent
+          ),
+      },
+      {
+        path: ':sessionId',
+        loadComponent: () =>
+          import('./features/chat/chat-window/chat-window.component').then(
+            (m) => m.ChatWindowComponent
+          ),
+      },
+    ],
   },
   {
     path: '',

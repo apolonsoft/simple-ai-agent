@@ -1,12 +1,13 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { ChatSidebarComponent } from '../chat-sidebar/chat-sidebar.component';
 
 @Component({
   selector: 'app-chat-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet],
+  imports: [CommonModule, RouterOutlet, ChatSidebarComponent],
   template: `
     <div class="layout-wrapper">
       <!-- Top Navigation Bar -->
@@ -36,9 +37,12 @@ import { AuthService } from '../../../core/services/auth.service';
         </div>
       </header>
 
-      <!-- Main App Content Area (Hosts Sidebar & Chat Thread) -->
+      <!-- Main Layout Body: Sidebar + Dynamic Chat Viewport -->
       <div class="layout-body">
-        <router-outlet></router-outlet>
+        <app-chat-sidebar></app-chat-sidebar>
+        <div class="chat-viewport">
+          <router-outlet></router-outlet>
+        </div>
       </div>
     </div>
   `,
@@ -146,6 +150,13 @@ import { AuthService } from '../../../core/services/auth.service';
       display: flex;
       overflow: hidden;
       position: relative;
+    }
+    .chat-viewport {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
     }
   `]
 })

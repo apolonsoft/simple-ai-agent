@@ -36,15 +36,15 @@ migrate:
 dev-api:
 	cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000
 
-# Frontend (using pnpm and node 24)
+# Frontend (using sandboxed pnpm and node 24)
 dev-web:
-	pnpm --prefix apps/web start
+	NG_CLI_ANALYTICS=false PATH="$(PWD)/.bin:$$PATH" pnpm --prefix apps/web start
 
 test-web:
-	pnpm --prefix apps/web test --watch=false
+	NG_CLI_ANALYTICS=false PATH="$(PWD)/.bin:$$PATH" pnpm --prefix apps/web test --watch=false
 
 build-web:
-	pnpm --prefix apps/web build
+	NG_CLI_ANALYTICS=false PATH="$(PWD)/.bin:$$PATH" pnpm --prefix apps/web build
 
 # Monorepo CI verification
 test-all: test-api test-web
