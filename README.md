@@ -2,6 +2,8 @@
 
 An enterprise-grade, high-concurrency, full-stack AI Agent application designed for multi-tenant real-time streaming conversations. Built with a decoupled monorepo architecture featuring a **FastAPI (Python 3.10)** asynchronous backend and an **Angular 22** standalone frontend powered by Angular Signals.
 
+> 📖 **Deep Dive Code Walkthrough**: For an exhaustive line-by-line breakdown of every service, database transaction decoupling, streaming algorithm, and security logic, refer to [`docs/ARCHITECTURE_AND_CODE_WALKTHROUGH.md`](docs/ARCHITECTURE_AND_CODE_WALKTHROUGH.md).
+
 ---
 
 ## Architecture Overview
@@ -41,10 +43,10 @@ flowchart TD
 - **Session Thread Sidebar**: "+ New Chat" action, thread list with active indicators, instant hover deletion, and route parameter input binding (`/chat/:sessionId`).
 - **Guards & Interceptors**: Functional `authGuard` and `guestGuard` for seamless route protection, plus a functional HTTP interceptor injecting Bearer JWT tokens.
 
-### 🧪 Comprehensive Quality & Testing (89/89 Tests Passed)
+### 🧪 Comprehensive Quality & Testing (95/95 Tests Passed)
 - **100% Automated Test Suite**:
   - **45 Backend Pytest tests**: Async persistence, Argon2id auth, Redis rate limiting, Gemini & Ollama adapters, context sliding window, SSE streaming generator, Redis cache hits/invalidation, and concurrent pool safety.
-  - **44 Frontend Vitest tests across 11 suites**: Signal stores, streaming readers, Markdown parsing, component views, auth forms, interceptors, and route guards.
+  - **50 Frontend Vitest tests across 12 suites**: Signal stores, streaming readers, Markdown parsing, component views, auth forms, interceptors, and route guards.
 - **Load Testing & Concurrency Benchmark**: Automated load test tool measuring RPS, token throughput, and p50, p90, p95, and p99 latency percentiles under concurrent user load.
 
 ---
@@ -55,6 +57,8 @@ flowchart TD
 simple-ai-agent/
 ├── docker-compose.yml              # Local infrastructure: Postgres 16, Redis 7, Ollama
 ├── Makefile                        # Unified command runner (dev, test, build, benchmark)
+├── docs/
+│   └── ARCHITECTURE_AND_CODE_WALKTHROUGH.md # Line-by-line code explanation & design rationale
 ├── scripts/
 │   ├── verify_infra.py             # Infrastructure & port connectivity health checker
 │   └── benchmark_concurrency.py    # High-concurrency load testing & percentile reporter
@@ -80,6 +84,9 @@ simple-ai-agent/
 │       ├── proxy.conf.json         # Reverse proxy mapping /api to FastAPI (port 8000)
 │       └── package.json            # Node dependencies
 └── shared/                         # Shared schemas and interface contracts
+    ├── openapi.json                # Complete auto-generated OpenAPI 3.1.0 specification
+    └── types/
+        └── api.ts                  # Shared TypeScript API models & event contracts
 ```
 
 ---
