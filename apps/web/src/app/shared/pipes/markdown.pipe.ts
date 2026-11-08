@@ -12,7 +12,7 @@ export class MarkdownPipe implements PipeTransform {
     if (!value) return '';
 
     const html = this.parseMarkdown(value);
-    return this.sanitizer.sanitize(SecurityContext.HTML, html) || this.sanitizer.bypassSecurityTrustHtml(html);
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
   private escapeHtml(str: string): string {
@@ -34,6 +34,13 @@ export class MarkdownPipe implements PipeTransform {
         <div class="code-container">
           <div class="code-header">
             <span class="code-lang">${language}</span>
+            <button type="button" class="copy-code-btn" title="Copy code">
+              <svg class="copy-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span class="copy-text">Copy</span>
+            </button>
           </div>
           <pre><code>${escapedCode}</code></pre>
         </div>
@@ -79,6 +86,10 @@ export class MarkdownPipe implements PipeTransform {
 
     // 9. Line breaks outside of code blocks
     processed = processed.replace(/\n/g, '<br/>');
+
+    // Clean up redundant line breaks immediately adjacent to code blocks
+    processed = processed.replace(/(?:<br\/>)+(?=__CODE_BLOCK_)/g, '');
+    processed = processed.replace(/(__CODE_BLOCK_\d+__)(?:<br\/>)+/g, '$1');
 
     // 10. Re-insert code blocks
     processed = processed.replace(/__CODE_BLOCK_(\d+)__/g, (_match, index) => {

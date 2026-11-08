@@ -61,8 +61,19 @@ import { ChatSession } from '../../../core/models/chat.model';
     </aside>
   `,
   styles: [`
+    :host {
+      display: block;
+      width: 280px;
+      min-width: 280px;
+      max-width: 280px;
+      height: 100%;
+      flex-shrink: 0;
+      position: relative;
+    }
     .sidebar {
       width: 280px;
+      min-width: 280px;
+      max-width: 280px;
       height: 100%;
       background: #0f172a;
       border-right: 1px solid #1e293b;
@@ -70,10 +81,12 @@ import { ChatSession } from '../../../core/models/chat.model';
       flex-direction: column;
       flex-shrink: 0;
       user-select: none;
+      overflow: hidden;
     }
     .sidebar-header {
       padding: 1rem;
       border-bottom: 1px solid #1e293b;
+      flex-shrink: 0;
     }
     .new-chat-btn {
       width: 100%;
@@ -101,9 +114,12 @@ import { ChatSession } from '../../../core/models/chat.model';
       line-height: 1;
     }
     .session-list-container {
-      flex: 1;
+      flex: 1 1 0%;
+      min-height: 0;
       overflow-y: auto;
       padding: 0.75rem;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 #0f172a;
     }
     .loading-state, .empty-state {
       display: flex;

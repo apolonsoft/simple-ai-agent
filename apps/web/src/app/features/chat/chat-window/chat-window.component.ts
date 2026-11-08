@@ -5,6 +5,8 @@ import {
   effect,
   ViewChild,
   ElementRef,
+  AfterViewInit,
+  OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -25,14 +27,14 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
             <span class="session-id-tag">Thread: {{ sid }}</span>
           </div>
 
-          <div class="header-status">
+          <div class="header-status" [class.is-streaming]="isStreaming()">
             <span class="status-indicator"></span>
-            <span class="status-text">LLM Streaming Active</span>
+            <span class="status-text">{{ isStreaming() ? 'LLM Streaming Active' : 'System Ready' }}</span>
           </div>
         </header>
 
         <!-- Message History Viewport -->
-        <div class="messages-viewport" #messagesContainer>
+        <div class="messages-viewport" #messagesContainer (click)="onMessagesClick($event)">
           @if (isLoadingMessages()) {
             <div class="loading-state">
               <div class="spinner"></div>
@@ -62,9 +64,14 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
                 <div class="message-row" [class.user-row]="msg.role === 'user'" [class.assistant-row]="msg.role === 'assistant'">
                   <div class="avatar" [class.user-avatar]="msg.role === 'user'" [class.assistant-avatar]="msg.role === 'assistant'">
                     @if (msg.role === 'user') {
-                      <span>👤</span>
+                      <svg class="avatar-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                      </svg>
                     } @else {
-                      <span>⚡</span>
+                      <svg class="avatar-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                      </svg>
                     }
                   </div>
 
@@ -98,6 +105,7 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
               <span class="error-text">{{ err }}</span>
             </div>
           }
+          <div #scrollAnchor class="scroll-anchor"></div>
         </div>
 
         <!-- Sticky Chat Input Bar -->
@@ -152,11 +160,24 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
     </div>
   `,
   styles: [`
+    :host {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      height: 100%;
+      width: 100%;
+      min-height: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+
     .chat-window-container {
       flex: 1;
       display: flex;
       flex-direction: column;
       height: 100%;
+      width: 100%;
+      min-height: 0;
       background: #090e17;
       color: #f1f5f9;
       position: relative;
@@ -172,6 +193,7 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
       padding: 0 1.5rem;
       background: #0b1220;
       flex-shrink: 0;
+      z-index: 5;
     }
 
     .session-info {
@@ -202,24 +224,76 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
       align-items: center;
       gap: 0.5rem;
       font-size: 0.75rem;
-      color: #94a3b8;
+      color: #64748b;
+      padding: 0.25rem 0.625rem;
+      border-radius: 9999px;
+      background: rgba(30, 41, 59, 0.4);
+      border: 1px solid #1e293b;
+      transition: all 0.2s ease;
     }
 
     .status-indicator {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
+      background: #64748b;
+      transition: all 0.2s ease;
+    }
+
+    .header-status.is-streaming {
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .header-status.is-streaming .status-indicator {
       background: #10b981;
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+      animation: pulse-dot 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.8); }
     }
 
     .messages-viewport {
-      flex: 1;
-      overflow-y: auto;
+      flex: 1 1 0%;
+      min-height: 0;
+      height: 0;
+      overflow-y: scroll;
+      overflow-x: hidden;
       padding: 1.5rem 2rem;
       display: flex;
       flex-direction: column;
-      scroll-behavior: smooth;
+      position: relative;
+      scrollbar-width: thin;
+      scrollbar-color: #475569 #0b1220;
+    }
+
+    .messages-viewport::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .messages-viewport::-webkit-scrollbar-track {
+      background: #0b1220;
+    }
+
+    .messages-viewport::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+
+    .messages-viewport::-webkit-scrollbar-thumb:hover {
+      background: #6366f1;
+    }
+
+    .scroll-anchor {
+      height: 1px;
+      width: 100%;
+      pointer-events: none;
+      visibility: hidden;
+      flex-shrink: 0;
     }
 
     .loading-state {
@@ -332,40 +406,52 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
     .avatar {
       width: 2.25rem;
       height: 2.25rem;
-      border-radius: 0.5rem;
+      border-radius: 0.625rem;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1rem;
       flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
     }
 
     .user-avatar {
-      background: #4f46e5;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
       color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
     }
 
     .assistant-avatar {
-      background: #1e293b;
-      border: 1px solid #334155;
-      color: #f59e0b;
+      background: #111a2e;
+      border: 1px solid #293548;
+      color: #818cf8;
+    }
+
+    .avatar-icon {
+      width: 1.125rem;
+      height: 1.125rem;
+      display: block;
     }
 
     .bubble {
       max-width: 82%;
+      min-width: 0;
       border-radius: 0.875rem;
       padding: 0.875rem 1.125rem;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
 
     .user-bubble {
-      background: #4338ca;
+      background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
       color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-bottom-right-radius: 0.25rem;
     }
 
     .assistant-bubble {
-      background: #131d2e;
+      background: #111a2e;
       border: 1px solid #1e293b;
       color: #f1f5f9;
       border-bottom-left-radius: 0.25rem;
@@ -397,6 +483,12 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
       white-space: pre-wrap;
       line-height: 1.5;
       font-size: 0.9375rem;
+    }
+
+    .bubble-content {
+      min-width: 0;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
 
     .streaming-cursor {
@@ -434,6 +526,9 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
       border-top: 1px solid #1e293b;
       padding: 1rem 1.5rem;
       flex-shrink: 0;
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
     }
 
     .input-form {
@@ -569,10 +664,11 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
     }
   `]
 })
-export class ChatWindowComponent {
+export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   private readonly chatService = inject(ChatService);
 
   @ViewChild('messagesContainer') private messagesContainer?: ElementRef<HTMLDivElement>;
+  @ViewChild('scrollAnchor') private scrollAnchor?: ElementRef<HTMLDivElement>;
 
   // Bound from route parameter :sessionId
   readonly sessionId = input<string | null>(null);
@@ -584,6 +680,7 @@ export class ChatWindowComponent {
   readonly streamError = this.chatService.streamError;
 
   promptText: string = '';
+  private observer?: MutationObserver;
 
   constructor() {
     effect(() => {
@@ -594,8 +691,30 @@ export class ChatWindowComponent {
     effect(() => {
       // Re-trigger scroll whenever messages array updates
       this.messages();
-      setTimeout(() => this.scrollToBottom(), 50);
+      this.scheduleScrollToBottom();
     });
+  }
+
+  ngAfterViewInit(): void {
+    this.scheduleScrollToBottom();
+    this.setupScrollObserver();
+  }
+
+  ngOnDestroy(): void {
+    this.observer?.disconnect();
+  }
+
+  private setupScrollObserver(): void {
+    if (typeof MutationObserver !== 'undefined' && this.messagesContainer?.nativeElement) {
+      this.observer = new MutationObserver(() => {
+        this.scrollToBottom();
+      });
+      this.observer.observe(this.messagesContainer.nativeElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
   }
 
   onKeyDown(event: KeyboardEvent): void {
@@ -617,6 +736,7 @@ export class ChatWindowComponent {
 
     this.promptText = '';
     this.chatService.sendMessageStream(sid, text);
+    this.scheduleScrollToBottom();
   }
 
   setQuickPrompt(prompt: string): void {
@@ -627,10 +747,47 @@ export class ChatWindowComponent {
     this.chatService.abortStream();
   }
 
+  onMessagesClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    const copyBtn = target.closest('.copy-code-btn') as HTMLButtonElement | null;
+    if (!copyBtn) return;
+
+    const container = copyBtn.closest('.code-container');
+    const codeEl = container?.querySelector('code');
+    if (!codeEl) return;
+
+    const textToCopy = codeEl.innerText || codeEl.textContent || '';
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        const textSpan = copyBtn.querySelector('.copy-text');
+        if (textSpan) textSpan.textContent = 'Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          if (textSpan) textSpan.textContent = 'Copy';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      }).catch(() => {
+        // clipboard access restricted
+      });
+    }
+  }
+
+  private scheduleScrollToBottom(): void {
+    this.scrollToBottom();
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => this.scrollToBottom());
+    }
+    setTimeout(() => this.scrollToBottom(), 20);
+    setTimeout(() => this.scrollToBottom(), 80);
+  }
+
   private scrollToBottom(): void {
     if (this.messagesContainer?.nativeElement) {
       const el = this.messagesContainer.nativeElement;
       el.scrollTop = el.scrollHeight;
+    }
+    if (typeof this.scrollAnchor?.nativeElement?.scrollIntoView === 'function') {
+      this.scrollAnchor.nativeElement.scrollIntoView({ block: 'end' });
     }
   }
 }

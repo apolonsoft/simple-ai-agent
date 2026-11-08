@@ -47,6 +47,12 @@ import { ChatSidebarComponent } from '../chat-sidebar/chat-sidebar.component';
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+    }
     .layout-wrapper {
       display: flex;
       flex-direction: column;
@@ -55,10 +61,13 @@ import { ChatSidebarComponent } from '../chat-sidebar/chat-sidebar.component';
       background: #090d16;
       color: #f3f4f6;
       overflow: hidden;
+      position: fixed;
+      inset: 0;
       font-family: inherit;
     }
     .top-nav {
       height: 3.5rem;
+      min-height: 3.5rem;
       background: #0f172a;
       border-bottom: 1px solid #1e293b;
       display: flex;
@@ -66,6 +75,7 @@ import { ChatSidebarComponent } from '../chat-sidebar/chat-sidebar.component';
       justify-content: space-between;
       padding: 0 1.25rem;
       flex-shrink: 0;
+      z-index: 20;
     }
     .brand {
       display: flex;
@@ -146,17 +156,30 @@ import { ChatSidebarComponent } from '../chat-sidebar/chat-sidebar.component';
       color: #f87171;
     }
     .layout-body {
-      flex: 1;
+      flex: 1 1 0%;
+      height: calc(100vh - 3.5rem);
+      width: 100vw;
       display: flex;
       overflow: hidden;
       position: relative;
     }
+    app-chat-sidebar {
+      width: 280px;
+      min-width: 280px;
+      max-width: 280px;
+      height: 100%;
+      flex-shrink: 0;
+      z-index: 15;
+    }
     .chat-viewport {
-      flex: 1;
+      flex: 1 1 0%;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
       display: flex;
       flex-direction: column;
-      height: 100%;
       overflow: hidden;
+      position: relative;
     }
   `]
 })
