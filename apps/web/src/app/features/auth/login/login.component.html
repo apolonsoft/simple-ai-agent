@@ -1,0 +1,62 @@
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="header">
+      <div class="logo-badge">🤖</div>
+      <h1>Welcome Back</h1>
+      <p class="subtitle">Sign in to your AI Agent account</p>
+    </div>
+
+    @if (errorMessage()) {
+      <div class="error-alert">
+        <span>⚠️</span>
+        <p>{{ errorMessage() }}</p>
+      </div>
+    }
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="you@example.com"
+          [class.input-error]="isFieldInvalid('email')"
+        />
+        @if (isFieldInvalid('email')) {
+          <span class="field-error">Please enter a valid email address.</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          placeholder="••••••••"
+          [class.input-error]="isFieldInvalid('password')"
+        />
+        @if (isFieldInvalid('password')) {
+          <span class="field-error">Password is required.</span>
+        }
+      </div>
+
+      <button
+        type="submit"
+        class="submit-btn"
+        [disabled]="loginForm.invalid || isSubmitting()"
+      >
+        @if (isSubmitting()) {
+          <span class="spinner"></span> Signing in...
+        } @else {
+          Sign In
+        }
+      </button>
+    </form>
+
+    <div class="footer">
+      <p>Don't have an account? <a routerLink="/register">Create one</a></p>
+    </div>
+  </div>
+</div>

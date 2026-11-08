@@ -1,0 +1,140 @@
+<div class="chat-window-container">
+  @if (sessionId(); as sid) {
+    <!-- Top Session Context Bar -->
+    <header class="chat-header">
+      <div class="session-info">
+        <h2>{{ currentSession()?.title || 'Active Conversation' }}</h2>
+        <span class="session-id-tag">Thread: {{ sid }}</span>
+      </div>
+
+      <div class="header-status" [class.is-streaming]="isStreaming()">
+        <span class="status-indicator"></span>
+        <span class="status-text">{{ isStreaming() ? 'LLM Streaming Active' : 'System Ready' }}</span>
+      </div>
+    </header>
+
+    <!-- Message History Viewport -->
+    <div class="messages-viewport" #messagesContainer (click)="onMessagesClick($event)">
+      @if (isLoadingMessages()) {
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <span>Retrieving thread memory...</span>
+        </div>
+      } @else if (messages().length === 0) {
+        <div class="empty-conversation">
+          <div class="empty-badge">🚀 Enterprise Pluggable Agent</div>
+          <h3>How can I assist you today?</h3>
+          <p>Ask anything about architecture, code reviews, debugging, or system design.</p>
+          
+          <div class="quick-prompts">
+            <button class="quick-chip" (click)="setQuickPrompt('Explain how PostgreSQL connection pooling prevents LLM starvation.')">
+              💡 Connection Pooling Architecture
+            </button>
+            <button class="quick-chip" (click)="setQuickPrompt('Review the async sliding-window rate limiter in Redis.')">
+              ⚡ Redis Rate Limiter Deep Dive
+            </button>
+            <button class="quick-chip" (click)="setQuickPrompt('Help me write an automated integration test in Vitest.')">
+              🧪 Test Automation Guidance
+            </button>
+          </div>
+        </div>
+      } @else {
+        <div class="message-feed">
+          @for (msg of messages(); track $index) {
+            <div class="message-row" [class.user-row]="msg.role === 'user'" [class.assistant-row]="msg.role === 'assistant'">
+              <div class="avatar" [class.user-avatar]="msg.role === 'user'" [class.assistant-avatar]="msg.role === 'assistant'">
+                @if (msg.role === 'user') {
+                  <svg class="avatar-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                } @else {
+                  <svg class="avatar-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                  </svg>
+                }
+              </div>
+
+              <div class="bubble" [class.user-bubble]="msg.role === 'user'" [class.assistant-bubble]="msg.role === 'assistant'">
+                <div class="bubble-header">
+                  <span class="author-label">{{ msg.role === 'user' ? 'You' : 'AI Assistant' }}</span>
+                  @if (msg.created_at) {
+                    <span class="timestamp">{{ msg.created_at | date:'shortTime' }}</span>
+                  }
+                </div>
+
+                <div class="bubble-content">
+                  @if (msg.role === 'assistant') {
+                    <div class="markdown-body" [innerHTML]="msg.content | markdown"></div>
+                    @if (msg.isStreaming) {
+                      <span class="streaming-cursor" title="Streaming token generation..."></span>
+                    }
+                  } @else {
+                    <p class="user-text">{{ msg.content }}</p>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      @if (streamError(); as err) {
+        <div class="error-banner">
+          <span class="error-icon">⚠️</span>
+          <span class="error-text">{{ err }}</span>
+        </div>
+      }
+      <div #scrollAnchor class="scroll-anchor"></div>
+    </div>
+
+    <!-- Sticky Chat Input Bar -->
+    <footer class="input-dock">
+      <form class="input-form" (submit)="onSubmit($event)">
+        <textarea
+          #inputArea
+          class="chat-input"
+          rows="1"
+          placeholder="Type your prompt... (Press Enter to send, Shift+Enter for new line)"
+          [(ngModel)]="promptText"
+          name="promptText"
+          (keydown)="onKeyDown($event)"
+          [disabled]="isStreaming()"
+        ></textarea>
+
+        <div class="input-actions">
+          @if (isStreaming()) {
+            <button type="button" class="stop-btn" (click)="onAbort()" title="Stop Generation">
+              <span class="stop-icon">■</span>
+              <span>Stop</span>
+            </button>
+          } @else {
+            <button
+              type="submit"
+              class="send-btn"
+              [disabled]="!promptText.trim()"
+              title="Send message (Enter)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          }
+        </div>
+      </form>
+      <div class="input-footnote">
+        <span>Enterprise Multi-Tenant AI Agent • High-Throughput Streaming Engine</span>
+      </div>
+    </footer>
+  } @else {
+    <!-- No Session Selected Placeholder -->
+    <div class="no-session-selected">
+      <div class="empty-hero">
+        <span class="hero-icon">✨</span>
+        <h2>Select or create a conversation</h2>
+        <p>Choose an existing thread from the sidebar or click "+ New Chat" to start fresh.</p>
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,83 @@
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="header">
+      <div class="logo-badge">⚡</div>
+      <h1>Create an Account</h1>
+      <p class="subtitle">Get started with your personal AI workspace</p>
+    </div>
+
+    @if (errorMessage()) {
+      <div class="error-alert">
+        <span>⚠️</span>
+        <p>{{ errorMessage() }}</p>
+      </div>
+    }
+
+    @if (successMessage()) {
+      <div class="success-alert">
+        <span>✅</span>
+        <p>{{ successMessage() }}</p>
+      </div>
+    }
+
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="you@example.com"
+          [class.input-error]="isFieldInvalid('email')"
+        />
+        @if (isFieldInvalid('email')) {
+          <span class="field-error">Please enter a valid email address.</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          placeholder="At least 6 characters"
+          [class.input-error]="isFieldInvalid('password')"
+        />
+        @if (isFieldInvalid('password')) {
+          <span class="field-error">Password must be at least 6 characters long.</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input
+          id="confirmPassword"
+          type="password"
+          formControlName="confirmPassword"
+          placeholder="Re-enter password"
+          [class.input-error]="isFieldInvalid('confirmPassword') || (registerForm.errors?.['passwordMismatch'] && registerForm.get('confirmPassword')?.touched)"
+        />
+        @if (registerForm.errors?.['passwordMismatch'] && registerForm.get('confirmPassword')?.touched) {
+          <span class="field-error">Passwords do not match.</span>
+        }
+      </div>
+
+      <button
+        type="submit"
+        class="submit-btn"
+        [disabled]="registerForm.invalid || isSubmitting()"
+      >
+        @if (isSubmitting()) {
+          <span class="spinner"></span> Creating Account...
+        } @else {
+          Create Account
+        }
+      </button>
+    </form>
+
+    <div class="footer">
+      <p>Already have an account? <a routerLink="/login">Sign In</a></p>
+    </div>
+  </div>
+</div>

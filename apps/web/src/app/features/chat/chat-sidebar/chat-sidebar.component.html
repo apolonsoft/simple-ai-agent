@@ -1,0 +1,50 @@
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <button class="new-chat-btn" (click)="onNewChat()">
+      <span class="btn-icon">+</span>
+      <span>New Chat</span>
+    </button>
+  </div>
+
+  <div class="session-list-container">
+    @if (isLoading()) {
+      <div class="loading-state">
+        <span class="spinner"></span>
+        <span>Loading history...</span>
+      </div>
+    } @else if (sessions().length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon">💬</span>
+        <p>No conversations yet.</p>
+        <span class="empty-sub">Start a new chat to begin.</span>
+      </div>
+    } @else {
+      <div class="session-list">
+        @for (session of sessions(); track session.id) {
+          <div
+            class="session-item"
+            [class.active]="activeSessionId() === session.id"
+            [routerLink]="['/chat', session.id]"
+            (click)="onSelect(session.id)"
+          >
+            <div class="item-content">
+              <span class="chat-icon">💭</span>
+              <span class="session-title" [title]="session.title">{{ session.title }}</span>
+            </div>
+
+            <button
+              class="delete-btn"
+              title="Delete chat"
+              (click)="onDelete(session.id, $event)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</aside>
