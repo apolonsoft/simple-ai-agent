@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
 import { ChatService } from './chat.service';
-import { ChatSession } from '../models/chat.model';
+import { ChatSession, ChatMessage } from '../models/chat.model';
 
 describe('ChatService', () => {
   let service: ChatService;
@@ -41,10 +41,13 @@ describe('ChatService', () => {
 
     service = TestBed.inject(ChatService);
     httpTestingController = TestBed.inject(HttpTestingController);
+    localStorage.clear();
   });
 
   afterEach(() => {
     httpTestingController.verify();
+    localStorage.clear();
+    vi.restoreAllMocks();
   });
 
   it('should load sessions and update reactive state', () => {
@@ -140,9 +143,91 @@ describe('ChatService', () => {
     expect(service.activeSession()).toBeNull();
 
     service.selectSession('session-2');
+    const req = httpTestingController.expectOne('/api/v1/chats/session-2/messages');
+    req.flush([]);
+
     expect(service.activeSession()).toEqual(mockSessions[1]);
 
-    service.selectSession('non-existent');
+    service.selectSession(null);
     expect(service.activeSession()).toBeNull();
+    expect(service.messages()).toEqual([]);
+  });
+
+  it('should load session messages via loadMessages', () => {
+    const mockMessages: ChatMessage[] = [
+      { id: 'm-1', session_id: 'session-1', role: 'user', content: 'Hello' },
+      { id: 'm-2', session_id: 'session-1', role: 'assistant', content: 'Hi there!' },
+    ];
+
+    service.loadMessages('session-1').subscribe((msgs) => {
+      expect(msgs).toEqual(mockMessages);
+    });
+
+    expect(service.isLoadingMessages()).toBe(true);
+
+    const req = httpTestingController.expectOne('/api/v1/chats/session-1/messages');
+    expect(req.request.method).toBe('GET');
+    req.flush(mockMessages);
+
+    expect(service.messages()).toEqual(mockMessages);
+    expect(service.isLoadingMessages()).toBe(false);
+  });
+
+  it('should consume real-time SSE stream chunks and update assistant message', async () => {
+    localStorage.setItem('token', 'jwt-test-token');
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(encoder.encode('event: chunk\ndata: {"content": "Deep"}\n\n'));
+        controller.enqueue(encoder.encode('event: chunk\ndata: {"content": " learning"}\n\n'));
+        controller.enqueue(encoder.encode('event: done\ndata: {"status": "completed"}\n\n'));
+        controller.close();
+      },
+    });
+
+    const mockResponse = new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse);
+
+    await service.sendMessageStream('session-1', 'Explain AI');
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/v1/chats/session-1/stream',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer jwt-test-token',
+        }),
+        body: JSON.stringify({ content: 'Explain AI' }),
+      })
+    );
+
+    const msgs = service.messages();
+    expect(msgs.length).toBe(2);
+    expect(msgs[0]).toMatchObject({ role: 'user', content: 'Explain AI' });
+    expect(msgs[1]).toMatchObject({ role: 'assistant', content: 'Deep learning', isStreaming: false });
+    expect(service.isStreaming()).toBe(false);
+  });
+
+  it('should handle SSE server error gracefully', async () => {
+    const mockResponse = new Response(JSON.stringify({ detail: 'Provider API key is invalid' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse);
+
+    await service.sendMessageStream('session-1', 'Test prompt');
+
+    expect(service.streamError()).toContain('Provider API key is invalid');
+    const msgs = service.messages();
+    expect(msgs.length).toBe(2);
+    expect(msgs[1].content).toContain('Provider API key is invalid');
+    expect(service.isStreaming()).toBe(false);
   });
 });
