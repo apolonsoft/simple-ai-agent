@@ -1,4 +1,4 @@
-.PHONY: help up down logs verify test-api dev-api migrate dev-web test-web build-web test-all
+.PHONY: help up down logs verify test-api dev-api migrate dev-web test-web build-web test-all benchmark
 
 help:
 	@echo "Available commands:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make test-web   - Run Angular test suite (Vitest)"
 	@echo "  make build-web  - Build production Angular frontend bundle"
 	@echo "  make test-all   - Run both backend and frontend test suites"
+	@echo "  make benchmark  - Run high-concurrency load benchmark"
 
 up:
 	docker compose up -d
@@ -48,3 +49,7 @@ build-web:
 
 # Monorepo CI verification
 test-all: test-api test-web
+
+# High-concurrency benchmark load test
+benchmark:
+	apps/api/.venv/bin/python scripts/benchmark_concurrency.py
