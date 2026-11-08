@@ -112,7 +112,7 @@ make up
 # 2. Verify infrastructure connectivity
 make verify
 
-# 3. Apply database migrations
+# 3. Apply database migrations (or: make run migrations)
 make migrate
 
 # 4. Run full test suite (Backend Pytest + Frontend Vitest)
@@ -179,7 +179,9 @@ OLLAMA_MODEL=llama3.2
 
 #### d. Apply Database Migrations
 ```bash
-alembic upgrade head
+# Run migrations using Makefile alias or direct alembic:
+make run migrations
+# or: alembic upgrade head
 ```
 
 #### e. Run Backend Tests

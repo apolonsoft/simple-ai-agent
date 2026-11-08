@@ -1,19 +1,20 @@
-.PHONY: help up down logs verify test-api dev-api migrate dev-web test-web build-web test-all benchmark
+.PHONY: help up down logs verify test-api dev-api migrate migrations run-migrations run dev-web test-web build-web test-all benchmark
 
 help:
 	@echo "Available commands:"
-	@echo "  make up         - Start local infrastructure (Postgres, Redis, Ollama)"
-	@echo "  make down       - Stop local infrastructure"
-	@echo "  make logs       - Tail logs for all containers"
-	@echo "  make verify     - Verify monorepo layout and service connectivity"
-	@echo "  make test-api   - Run FastAPI test suite (Pytest)"
-	@echo "  make dev-api    - Run FastAPI backend development server"
-	@echo "  make migrate    - Apply database migrations with Alembic"
-	@echo "  make dev-web    - Run Angular development server (pnpm start with proxy)"
-	@echo "  make test-web   - Run Angular test suite (Vitest)"
-	@echo "  make build-web  - Build production Angular frontend bundle"
-	@echo "  make test-all   - Run both backend and frontend test suites"
-	@echo "  make benchmark  - Run high-concurrency load benchmark"
+	@echo "  make up               - Start local infrastructure (Postgres, Redis, Ollama)"
+	@echo "  make down             - Stop local infrastructure"
+	@echo "  make logs             - Tail logs for all containers"
+	@echo "  make verify           - Verify monorepo layout and service connectivity"
+	@echo "  make test-api         - Run FastAPI test suite (Pytest)"
+	@echo "  make dev-api          - Run FastAPI backend development server"
+	@echo "  make migrate          - Apply database migrations with Alembic"
+	@echo "  make run migrations   - Apply database migrations with Alembic (alias)"
+	@echo "  make dev-web          - Run Angular development server (pnpm start with proxy)"
+	@echo "  make test-web         - Run Angular test suite (Vitest)"
+	@echo "  make build-web        - Build production Angular frontend bundle"
+	@echo "  make test-all         - Run both backend and frontend test suites"
+	@echo "  make benchmark        - Run high-concurrency load benchmark"
 
 up:
 	docker compose up -d
@@ -31,8 +32,11 @@ verify:
 test-api:
 	cd apps/api && .venv/bin/pytest -v
 
-migrate:
+migrate migrations run-migrations:
 	cd apps/api && .venv/bin/alembic upgrade head
+
+run:
+	@:
 
 dev-api:
 	cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000
