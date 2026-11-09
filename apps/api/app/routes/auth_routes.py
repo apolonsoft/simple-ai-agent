@@ -2,13 +2,14 @@
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import get_db
-from app.services.auth_service import AuthService
+
 from app.controllers.auth_controller import AuthController
-from app.schemas.user import UserCreate, UserResponse, Token
 from app.core.dependencies import get_current_user, require_role
 from app.core.rate_limiter import RateLimiter
+from app.db.session import get_db
 from app.models.user import UserModel
+from app.schemas.user import Token, UserCreate, UserResponse
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -21,11 +22,12 @@ def get_auth_controller(db: AsyncSession = Depends(get_db)) -> AuthController:
     "/register",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(RateLimiter(max_requests=10, window_seconds=60, scope="auth:register"))],
+    dependencies=[
+        Depends(RateLimiter(max_requests=10, window_seconds=60, scope="auth:register"))
+    ],
 )
 async def register(
-    user_in: UserCreate,
-    controller: AuthController = Depends(get_auth_controller)
+    user_in: UserCreate, controller: AuthController = Depends(get_auth_controller)
 ):
     return await controller.register(user_in)
 
@@ -33,11 +35,13 @@ async def register(
 @router.post(
     "/login",
     response_model=Token,
-    dependencies=[Depends(RateLimiter(max_requests=10, window_seconds=60, scope="auth:login"))],
+    dependencies=[
+        Depends(RateLimiter(max_requests=10, window_seconds=60, scope="auth:login"))
+    ],
 )
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    controller: AuthController = Depends(get_auth_controller)
+    controller: AuthController = Depends(get_auth_controller),
 ):
     return await controller.login(email=form_data.username, password=form_data.password)
 

@@ -1,6 +1,7 @@
 # app/schemas/user.py
 import uuid
-from pydantic import BaseModel, EmailStr, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class UserCreate(BaseModel):

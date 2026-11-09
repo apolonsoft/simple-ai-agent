@@ -1,25 +1,36 @@
 # app/tests/test_chat_stream.py
-import json
-import uuid
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-from fastapi import status
+from unittest.mock import patch
+
 import httpx
+import pytest
+from fastapi import status
+
 from app.providers.base import BaseLLMProvider
-from app.schemas.llm import LLMMessage
 
 
 class MockStreamingProvider(BaseLLMProvider):
     """Mock LLM provider yielding controlled tokens and capturing incoming context."""
+
     def __init__(self, token_chunks=None):
-        self.token_chunks = token_chunks or ["Hello", " world,", " this is", " streaming!"]
+        self.token_chunks = token_chunks or [
+            "Hello",
+            " world,",
+            " this is",
+            " streaming!",
+        ]
         self.captured_messages = []
 
     @property
     def provider_name(self) -> str:
         return "mock"
 
-    async def generate_stream(self, messages, **kwargs):
+    async def generate_stream(
+        self,
+        messages,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs,
+    ):
         self.captured_messages.append(messages)
         for chunk in self.token_chunks:
             yield chunk
@@ -28,9 +39,15 @@ class MockStreamingProvider(BaseLLMProvider):
         return True
 
 
-async def get_auth_token(client: httpx.AsyncClient, email: str = "streamer@example.com") -> str:
-    await client.post("/api/v1/auth/register", json={"email": email, "password": "password123"})
-    login_res = await client.post("/api/v1/auth/login", data={"username": email, "password": "password123"})
+async def get_auth_token(
+    client: httpx.AsyncClient, email: str = "streamer@example.com"
+) -> str:
+    await client.post(
+        "/api/v1/auth/register", json={"email": email, "password": "password123"}
+    )
+    login_res = await client.post(
+        "/api/v1/auth/login", data={"username": email, "password": "password123"}
+    )
     return login_res.json()["access_token"]
 
 
@@ -40,14 +57,18 @@ async def test_stream_chat_response_success(client: httpx.AsyncClient):
     headers = {"Authorization": f"Bearer {token}"}
 
     # 1. Create a session
-    session_res = await client.post("/api/v1/chats", json={"title": "Streaming Test"}, headers=headers)
+    session_res = await client.post(
+        "/api/v1/chats", json={"title": "Streaming Test"}, headers=headers
+    )
     assert session_res.status_code == status.HTTP_201_CREATED
     session_id = session_res.json()["id"]
 
     mock_provider = MockStreamingProvider(["Hello", " world!"])
 
     # 2. Call SSE stream endpoint
-    with patch("app.services.chat_stream_service.get_llm_provider", return_value=mock_provider):
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
         stream_res = await client.post(
             f"/api/v1/chats/{session_id}/stream",
             json={"content": "Hi AI!"},
@@ -65,7 +86,9 @@ async def test_stream_chat_response_success(client: httpx.AsyncClient):
         assert "event: done" in text_body
 
     # 3. Verify messages are persisted in PostgreSQL
-    messages_res = await client.get(f"/api/v1/chats/{session_id}/messages", headers=headers)
+    messages_res = await client.get(
+        f"/api/v1/chats/{session_id}/messages", headers=headers
+    )
     assert messages_res.status_code == status.HTTP_200_OK
     messages = messages_res.json()
 
@@ -82,13 +105,17 @@ async def test_stream_chat_multi_turn_context_memory(client: httpx.AsyncClient):
     token = await get_auth_token(client, "context_user@example.com")
     headers = {"Authorization": f"Bearer {token}"}
 
-    session_res = await client.post("/api/v1/chats", json={"title": "Memory Test"}, headers=headers)
+    session_res = await client.post(
+        "/api/v1/chats", json={"title": "Memory Test"}, headers=headers
+    )
     session_id = session_res.json()["id"]
 
     mock_provider = MockStreamingProvider(["I noted ", "your favorite color is cyan."])
 
     # Turn 1: User says favorite color
-    with patch("app.services.chat_stream_service.get_llm_provider", return_value=mock_provider):
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
         await client.post(
             f"/api/v1/chats/{session_id}/stream",
             json={"content": "My favorite color is cyan."},
@@ -97,7 +124,10 @@ async def test_stream_chat_multi_turn_context_memory(client: httpx.AsyncClient):
 
     # Turn 2: User asks what their favorite color is
     mock_provider_turn2 = MockStreamingProvider(["Your favorite color is cyan!"])
-    with patch("app.services.chat_stream_service.get_llm_provider", return_value=mock_provider_turn2):
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider",
+        return_value=mock_provider_turn2,
+    ):
         await client.post(
             f"/api/v1/chats/{session_id}/stream",
             json={"content": "What is my favorite color?"},
@@ -122,11 +152,17 @@ async def test_stream_unauthorized_and_cross_user_isolation(client: httpx.AsyncC
     token_b = await get_auth_token(client, "stream_user_b@example.com")
 
     # User A creates session
-    res_a = await client.post("/api/v1/chats", json={"title": "Private"}, headers={"Authorization": f"Bearer {token_a}"})
+    res_a = await client.post(
+        "/api/v1/chats",
+        json={"title": "Private"},
+        headers={"Authorization": f"Bearer {token_a}"},
+    )
     session_a_id = res_a.json()["id"]
 
     # 1. Unauthenticated request rejected
-    no_auth_res = await client.post(f"/api/v1/chats/{session_a_id}/stream", json={"content": "hi"})
+    no_auth_res = await client.post(
+        f"/api/v1/chats/{session_a_id}/stream", json={"content": "hi"}
+    )
     assert no_auth_res.status_code == status.HTTP_401_UNAUTHORIZED
 
     # 2. User B streaming into User A's session rejected with 404

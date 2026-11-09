@@ -1,8 +1,8 @@
 # app/schemas/chat.py
-import uuid
 import datetime
-from typing import List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+import uuid
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ChatMessageCreate(BaseModel):
@@ -14,14 +14,14 @@ class ChatMessageResponse(BaseModel):
     session_id: uuid.UUID
     role: str
     content: str
-    tokens: Optional[int] = None
+    tokens: int | None = None
     created_at: datetime.datetime
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class ChatSessionCreate(BaseModel):
-    title: Optional[str] = Field(default="New Chat", max_length=255)
+    title: str | None = Field(default="New Chat", max_length=255)
 
 
 class ChatSessionResponse(BaseModel):
@@ -35,4 +35,4 @@ class ChatSessionResponse(BaseModel):
 
 
 class ChatSessionDetailResponse(ChatSessionResponse):
-    messages: List[ChatMessageResponse] = []
+    messages: list[ChatMessageResponse] = []

@@ -1,10 +1,11 @@
 # app/core/rate_limiter.py
+import logging
 import time
 import uuid
-import logging
-from typing import Optional
-from fastapi import Request, HTTPException, status
+
 import redis.asyncio as aioredis
+from fastapi import HTTPException, Request, status
+
 from app.core.redis import get_redis_client
 from app.core.security import decode_access_token
 

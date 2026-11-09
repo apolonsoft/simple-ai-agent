@@ -1,12 +1,12 @@
 # app/tests/conftest.py
-import pytest_asyncio
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+
 import httpx
+import pytest_asyncio
 from httpx import ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-import app.models  # Ensure all models are registered on Base.metadata
 from app.db.session import Base, get_db, get_session_factory
 from app.main import app as fastapi_app
 
@@ -44,15 +44,20 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest_asyncio.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async httpx client that automatically overrides get_db with the test async session."""
+
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         async with TestingAsyncSessionLocal() as session:
             yield session
 
     fastapi_app.dependency_overrides[get_db] = override_get_db
-    fastapi_app.dependency_overrides[get_session_factory] = lambda: TestingAsyncSessionLocal
+    fastapi_app.dependency_overrides[get_session_factory] = lambda: (
+        TestingAsyncSessionLocal
+    )
 
     transport = ASGITransport(app=fastapi_app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as async_client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://test"
+    ) as async_client:
         yield async_client
 
     fastapi_app.dependency_overrides.clear()

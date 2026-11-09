@@ -1,8 +1,10 @@
 # app/providers/ollama_provider.py
 import json
 import logging
-from typing import AsyncGenerator, List, Optional
+from collections.abc import AsyncGenerator
+
 import httpx
+
 from app.core.config import settings
 from app.providers.base import BaseLLMProvider
 from app.providers.exceptions import (
@@ -22,8 +24,8 @@ class OllamaProvider(BaseLLMProvider):
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        model: Optional[str] = None,
+        base_url: str | None = None,
+        model: str | None = None,
     ):
         self.base_url = (base_url or settings.OLLAMA_BASE_URL).rstrip("/")
         self.model = model or settings.OLLAMA_MODEL
@@ -34,13 +36,12 @@ class OllamaProvider(BaseLLMProvider):
 
     def _format_payload(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         temperature: float,
-        max_tokens: Optional[int],
+        max_tokens: int | None,
     ) -> dict:
         formatted_messages = [
-            {"role": msg.role, "content": msg.content}
-            for msg in messages
+            {"role": msg.role, "content": msg.content} for msg in messages
         ]
         options = {"temperature": temperature}
         if max_tokens:
@@ -55,9 +56,9 @@ class OllamaProvider(BaseLLMProvider):
 
     async def generate_stream(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> AsyncGenerator[str, None]:
         url = f"{self.base_url}/api/chat"
@@ -73,7 +74,9 @@ class OllamaProvider(BaseLLMProvider):
                         )
                     elif response.status_code != 200:
                         body = await response.aread()
-                        raise LLMProviderError(f"Ollama error (HTTP {response.status_code}): {body.decode()}")
+                        raise LLMProviderError(
+                            f"Ollama error (HTTP {response.status_code}): {body.decode()}"
+                        )
 
                     async for line in response.aiter_lines():
                         line = line.strip()

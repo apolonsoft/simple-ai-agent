@@ -1,8 +1,10 @@
 # app/main.py
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+
 from app.core.config import settings
 from app.core.redis import close_redis_pool, get_redis_client
 from app.db.session import engine

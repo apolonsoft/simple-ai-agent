@@ -43,10 +43,13 @@ flowchart TD
 - **Session Thread Sidebar**: "+ New Chat" action, thread list with active indicators, instant hover deletion, and route parameter input binding (`/chat/:sessionId`).
 - **Guards & Interceptors**: Functional `authGuard` and `guestGuard` for seamless route protection, plus a functional HTTP interceptor injecting Bearer JWT tokens.
 
-### 🧪 Comprehensive Quality & Testing (95/95 Tests Passed)
+### 🧪 Comprehensive Quality & Testing (96/96 Tests Passed)
+- **Code Quality & Type Safety**:
+  - **[Astral Ruff](https://docs.astral.sh/ruff)**: Lightning-fast Python linting, isort import sorting, and code formatting.
+  - **[Astral ty](https://docs.astral.sh/ty)**: Ultra-fast Rust-based Python type checker and language server.
 - **100% Automated Test Suite**:
   - **45 Backend Pytest tests**: Async persistence, Argon2id auth, Redis rate limiting, Gemini & Ollama adapters, context sliding window, SSE streaming generator, Redis cache hits/invalidation, and concurrent pool safety.
-  - **50 Frontend Vitest tests across 12 suites**: Signal stores, streaming readers, Markdown parsing, component views, auth forms, interceptors, and route guards.
+  - **51 Frontend Vitest tests across 12 suites**: Signal stores, streaming readers, Markdown parsing, component views, auth forms, interceptors, and route guards.
 - **Load Testing & Concurrency Benchmark**: Automated load test tool measuring RPS, token throughput, and p50, p90, p95, and p99 latency percentiles under concurrent user load.
 
 ---
@@ -115,10 +118,13 @@ make verify
 # 3. Apply database migrations (or: make run migrations)
 make migrate
 
-# 4. Run full test suite (Backend Pytest + Frontend Vitest)
+# 4. Lint and Typecheck (Astral Ruff & Astral ty)
+make lint
+
+# 5. Run full test suite (Backend Pytest + Frontend Vitest)
 make test-all
 
-# 5. Run the high-concurrency benchmark
+# 6. Run the high-concurrency benchmark
 make benchmark
 ```
 

@@ -1,19 +1,21 @@
 # alembic/env.py
 import asyncio
 import sys
-from pathlib import Path
 from logging.config import fileConfig
+from pathlib import Path
+
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
 from alembic import context
 
 # 1. Ensure 'app' is importable by Alembic
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # 2. Import settings, Base, and all models so Alembic autogenerate detects all schemas
+import app.models  # Registers UserModel, ItemModel, etc.
 from app.core.config import settings
 from app.db.session import Base
-import app.models  # Registers UserModel, ItemModel, etc.
 
 config = context.config
 

@@ -1,5 +1,6 @@
 # app/db/session.py
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import (
     AsyncAttrs,
     AsyncSession,
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
+
 from app.core.config import settings
 
 # Engine configuration with high-concurrency connection pooling
@@ -39,6 +41,7 @@ AsyncSessionLocal = async_sessionmaker(
 
 class Base(AsyncAttrs, DeclarativeBase):
     """Base class for all SQLAlchemy 2.0 async models."""
+
     pass
 
 

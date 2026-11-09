@@ -1,23 +1,27 @@
 # app/services/chat_service.py
 import uuid
-from typing import List, Optional, TYPE_CHECKING
-from sqlalchemy import select, delete
+from typing import TYPE_CHECKING, Optional
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.chat import ChatSessionModel, ChatMessageModel
+
+from app.models.chat import ChatMessageModel, ChatSessionModel
 
 if TYPE_CHECKING:
     from app.services.chat_cache_service import ChatCacheService
 
 
 class ChatService:
-    def __init__(self, db: AsyncSession, cache_service: Optional["ChatCacheService"] = None):
+    def __init__(
+        self, db: AsyncSession, cache_service: Optional["ChatCacheService"] = None
+    ):
         self.db = db
         self.cache_service = cache_service
 
     async def create_session(
         self,
         user_id: uuid.UUID,
-        title: Optional[str] = "New Chat",
+        title: str | None = "New Chat",
     ) -> ChatSessionModel:
         session = ChatSessionModel(
             id=uuid.uuid4(),
@@ -32,7 +36,7 @@ class ChatService:
     async def list_user_sessions(
         self,
         user_id: uuid.UUID,
-    ) -> List[ChatSessionModel]:
+    ) -> list[ChatSessionModel]:
         stmt = (
             select(ChatSessionModel)
             .where(ChatSessionModel.user_id == user_id)
@@ -45,7 +49,7 @@ class ChatService:
         self,
         session_id: uuid.UUID,
         user_id: uuid.UUID,
-    ) -> Optional[ChatSessionModel]:
+    ) -> ChatSessionModel | None:
         """Fetches a session strictly verifying user ownership."""
         stmt = select(ChatSessionModel).where(
             ChatSessionModel.id == session_id,
@@ -76,8 +80,8 @@ class ChatService:
         user_id: uuid.UUID,
         role: str,
         content: str,
-        tokens: Optional[int] = None,
-    ) -> Optional[ChatMessageModel]:
+        tokens: int | None = None,
+    ) -> ChatMessageModel | None:
         """Adds a message to a session after confirming user ownership."""
         session = await self.get_session(session_id, user_id)
         if not session:
@@ -99,7 +103,7 @@ class ChatService:
         self,
         session_id: uuid.UUID,
         user_id: uuid.UUID,
-    ) -> Optional[List[ChatMessageModel]]:
+    ) -> list[ChatMessageModel] | None:
         session = await self.get_session(session_id, user_id)
         if not session:
             return None

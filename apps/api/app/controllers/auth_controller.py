@@ -1,7 +1,8 @@
 # app/controllers/auth_controller.py
 from fastapi import HTTPException, status
+
+from app.schemas.user import Token, UserCreate, UserResponse
 from app.services.auth_service import AuthService
-from app.schemas.user import UserCreate, UserResponse, Token
 
 
 class AuthController:
@@ -13,7 +14,7 @@ class AuthController:
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Email is already registered."
+                detail="Email is already registered.",
             )
         user = await self.service.register_user(user_in)
         return UserResponse.model_validate(user)

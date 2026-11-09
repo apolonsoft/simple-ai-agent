@@ -1,4 +1,4 @@
-.PHONY: help up down logs verify test-api dev-api migrate migrations run-migrations run dev-web test-web build-web test-all benchmark
+.PHONY: help up down logs verify test-api dev-api migrate migrations run-migrations run dev-web test-web build-web test-all benchmark lint lint-api format format-api typecheck-api
 
 help:
 	@echo "Available commands:"
@@ -6,6 +6,11 @@ help:
 	@echo "  make down             - Stop local infrastructure"
 	@echo "  make logs             - Tail logs for all containers"
 	@echo "  make verify           - Verify monorepo layout and service connectivity"
+	@echo "  make lint             - Run backend linter (Ruff) and type checker (ty)"
+	@echo "  make format           - Auto-format backend code and resolve fixable lints (Ruff)"
+	@echo "  make lint-api         - Run Ruff check and format check on FastAPI backend"
+	@echo "  make format-api       - Format and autofix FastAPI backend with Ruff"
+	@echo "  make typecheck-api    - Run Astral ty type checker on FastAPI backend"
 	@echo "  make test-api         - Run FastAPI test suite (Pytest)"
 	@echo "  make dev-api          - Run FastAPI backend development server"
 	@echo "  make migrate          - Apply database migrations with Alembic"
@@ -29,6 +34,19 @@ verify:
 	python3 scripts/verify_infra.py
 
 # Backend
+lint-api:
+	cd apps/api && .venv/bin/ruff check . && .venv/bin/ruff format --check .
+
+format-api:
+	cd apps/api && .venv/bin/ruff format . && .venv/bin/ruff check --fix .
+
+typecheck-api:
+	cd apps/api && .venv/bin/ty check
+
+lint: lint-api typecheck-api
+
+format: format-api
+
 test-api:
 	cd apps/api && .venv/bin/pytest -v
 

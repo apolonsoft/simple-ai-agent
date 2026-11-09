@@ -1,15 +1,18 @@
 # app/tests/test_rate_limiter.py
-import pytest
-from unittest.mock import patch, AsyncMock
-from fastapi import FastAPI, Depends, Request, status
+from unittest.mock import patch
+
 import httpx
+import pytest
+from fastapi import Depends, FastAPI, Request, status
 from httpx import ASGITransport
+
 from app.core.rate_limiter import RateLimiter
 from app.core.security import create_access_token
 
 
 class InMemoryRedis:
     """Mock Redis client tracking ZSET scores in-memory for deterministic rate limit testing."""
+
     def __init__(self):
         self.zsets = {}
 
@@ -55,7 +58,7 @@ class InMemoryPipeline:
         return self
 
     async def execute(self):
-        results = []
+        results: list = []
         for op in self.operations:
             name = op[0]
             if name == "zremrangebyscore":
@@ -70,8 +73,10 @@ class InMemoryPipeline:
                 results.append(len(self.redis.zsets.get(key, {})))
             elif name == "zrange":
                 _, key, start, stop, withscores = op
-                items = sorted(self.redis.zsets.get(key, {}).items(), key=lambda x: x[1])
-                sliced = items[start:stop + 1 if stop != -1 else None]
+                items = sorted(
+                    self.redis.zsets.get(key, {}).items(), key=lambda x: x[1]
+                )
+                sliced = items[start : stop + 1 if stop != -1 else None]
                 results.append(sliced if withscores else [m for m, _ in sliced])
             elif name == "zadd":
                 _, key, mapping = op
@@ -104,7 +109,9 @@ def test_app(fake_redis):
 async def test_rate_limiter_allows_up_to_limit(test_app, fake_redis):
     with patch("app.core.rate_limiter.get_redis_client", return_value=fake_redis):
         transport = ASGITransport(app=test_app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
             for _ in range(3):
                 res = await client.get("/limited")
                 assert res.status_code == status.HTTP_200_OK
@@ -115,7 +122,9 @@ async def test_rate_limiter_allows_up_to_limit(test_app, fake_redis):
 async def test_rate_limiter_blocks_excess_requests(test_app, fake_redis):
     with patch("app.core.rate_limiter.get_redis_client", return_value=fake_redis):
         transport = ASGITransport(app=test_app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
             # 3 requests allowed
             for _ in range(3):
                 res = await client.get("/limited")
@@ -133,13 +142,15 @@ async def test_rate_limiter_blocks_excess_requests(test_app, fake_redis):
 @pytest.mark.asyncio
 async def test_rate_limiter_identifies_user_via_bearer_token(test_app):
     limiter = RateLimiter(max_requests=5, window_seconds=60, scope="chat")
-    token = create_access_token(data={"sub": "user-uuid-123", "email": "test@example.com"})
+    token = create_access_token(
+        data={"sub": "user-uuid-123", "email": "test@example.com"}
+    )
 
     # Simulated Request with Bearer Token
     request = Request(
         scope={
             "type": "http",
-            "headers": [(b"authorization", f"Bearer {token}".encode("utf-8"))],
+            "headers": [(b"authorization", f"Bearer {token}".encode())],
             "client": ("192.168.1.10", 12345),
         }
     )
@@ -168,8 +179,13 @@ async def test_rate_limiter_identifies_client_ip_when_unauthenticated(test_app):
 @pytest.mark.asyncio
 async def test_rate_limiter_fails_open_on_redis_connection_error(test_app):
     """Resilience test: If Redis is offline, requests must still succeed (fail-open)."""
-    with patch("app.core.rate_limiter.get_redis_client", side_effect=Exception("Redis connection refused")):
+    with patch(
+        "app.core.rate_limiter.get_redis_client",
+        side_effect=Exception("Redis connection refused"),
+    ):
         transport = ASGITransport(app=test_app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
             res = await client.get("/limited")
             assert res.status_code == status.HTTP_200_OK

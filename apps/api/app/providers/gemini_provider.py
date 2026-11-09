@@ -1,8 +1,10 @@
 # app/providers/gemini_provider.py
 import json
 import logging
-from typing import AsyncGenerator, List, Optional
+from collections.abc import AsyncGenerator
+
 import httpx
+
 from app.core.config import settings
 from app.providers.base import BaseLLMProvider
 from app.providers.exceptions import (
@@ -23,8 +25,8 @@ class GeminiProvider(BaseLLMProvider):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
+        api_key: str | None = None,
+        model: str | None = None,
     ):
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.model = model or settings.GEMINI_MODEL
@@ -36,9 +38,9 @@ class GeminiProvider(BaseLLMProvider):
 
     def _format_payload(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         temperature: float,
-        max_tokens: Optional[int],
+        max_tokens: int | None,
     ) -> dict:
         contents = []
         system_instruction = None
@@ -65,9 +67,9 @@ class GeminiProvider(BaseLLMProvider):
 
     async def generate_stream(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> AsyncGenerator[str, None]:
         if not self.api_key or self.api_key.startswith("your_"):
@@ -84,12 +86,18 @@ class GeminiProvider(BaseLLMProvider):
                 async with client.stream("POST", url, json=payload) as response:
                     if response.status_code == 400:
                         body = await response.aread()
-                        raise LLMProviderError(f"Gemini API bad request: {body.decode()}")
+                        raise LLMProviderError(
+                            f"Gemini API bad request: {body.decode()}"
+                        )
                     elif response.status_code in (401, 403):
-                        raise LLMAuthenticationError("Gemini API key is invalid or unauthorized.")
+                        raise LLMAuthenticationError(
+                            "Gemini API key is invalid or unauthorized."
+                        )
                     elif response.status_code != 200:
                         body = await response.aread()
-                        raise LLMProviderError(f"Gemini API error (HTTP {response.status_code}): {body.decode()}")
+                        raise LLMProviderError(
+                            f"Gemini API error (HTTP {response.status_code}): {body.decode()}"
+                        )
 
                     async for line in response.aiter_lines():
                         line = line.strip()
@@ -111,7 +119,9 @@ class GeminiProvider(BaseLLMProvider):
                             continue
 
             except (httpx.ConnectError, httpx.TimeoutException) as exc:
-                raise LLMConnectionError(f"Failed to connect to Gemini API: {exc}") from exc
+                raise LLMConnectionError(
+                    f"Failed to connect to Gemini API: {exc}"
+                ) from exc
 
     async def health_check(self) -> bool:
         if not self.api_key or self.api_key.startswith("your_"):

@@ -1,5 +1,7 @@
 # app/services/memory_manager.py
-from typing import List, Optional
+from collections.abc import Sequence
+from typing import Literal, cast
+
 from app.core.config import settings
 from app.models.chat import ChatMessageModel
 from app.schemas.llm import LLMMessage
@@ -19,7 +21,7 @@ class MemoryManager:
 
     def __init__(
         self,
-        window_size: Optional[int] = None,
+        window_size: int | None = None,
         default_system_prompt: str = DEFAULT_SYSTEM_PROMPT,
     ):
         self.window_size = window_size or settings.CHAT_MEMORY_WINDOW_SIZE
@@ -27,10 +29,10 @@ class MemoryManager:
 
     def build_context(
         self,
-        history: List[ChatMessageModel],
-        new_user_message: Optional[str] = None,
-        custom_system_prompt: Optional[str] = None,
-    ) -> List[LLMMessage]:
+        history: Sequence[ChatMessageModel | dict],
+        new_user_message: str | None = None,
+        custom_system_prompt: str | None = None,
+    ) -> list[LLMMessage]:
         """
         Assembles prompt context for LLM:
         1. Places system prompt at index 0.
@@ -38,18 +40,31 @@ class MemoryManager:
         3. Appends the newest incoming user message.
         """
         system_instruction = custom_system_prompt or self.default_system_prompt
-        context: List[LLMMessage] = [
+        context: list[LLMMessage] = [
             LLMMessage(role="system", content=system_instruction)
         ]
 
         # Apply sliding window: take only the last K messages
-        windowed_history = history[-self.window_size:] if len(history) > self.window_size else history
+        windowed_history = (
+            history[-self.window_size :] if len(history) > self.window_size else history
+        )
 
         for msg in windowed_history:
-            role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", None)
-            content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", "")
+            role = (
+                msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", None)
+            )
+            content = (
+                msg.get("content")
+                if isinstance(msg, dict)
+                else getattr(msg, "content", "")
+            ) or ""
             if role in ("user", "assistant", "system"):
-                context.append(LLMMessage(role=role, content=content))
+                context.append(
+                    LLMMessage(
+                        role=cast(Literal["system", "user", "assistant"], role),
+                        content=str(content),
+                    )
+                )
 
         # Append incoming message if provided
         if new_user_message:

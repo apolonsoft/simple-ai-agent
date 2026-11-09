@@ -1,24 +1,25 @@
 # app/routes/chat_routes.py
 import uuid
-from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sse_starlette.sse import EventSourceResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import get_db, get_session_factory
+from sse_starlette.sse import EventSourceResponse
+
+from app.controllers.chat_controller import ChatController
 from app.core.dependencies import get_current_user
 from app.core.rate_limiter import RateLimiter
+from app.db.session import get_db, get_session_factory
 from app.models.user import UserModel
-from app.services.chat_service import ChatService
-from app.services.chat_cache_service import ChatCacheService
-from app.services.chat_stream_service import ChatStreamService
-from app.controllers.chat_controller import ChatController
 from app.schemas.chat import (
     ChatMessageCreate,
-    ChatSessionCreate,
-    ChatSessionResponse,
-    ChatSessionDetailResponse,
     ChatMessageResponse,
+    ChatSessionCreate,
+    ChatSessionDetailResponse,
+    ChatSessionResponse,
 )
+from app.services.chat_cache_service import ChatCacheService
+from app.services.chat_service import ChatService
+from app.services.chat_stream_service import ChatStreamService
 
 router = APIRouter(prefix="/chats", tags=["Chat"])
 
@@ -38,7 +39,9 @@ def get_chat_controller(
     "",
     response_model=ChatSessionResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(RateLimiter(max_requests=30, window_seconds=60, scope="chat:create"))],
+    dependencies=[
+        Depends(RateLimiter(max_requests=30, window_seconds=60, scope="chat:create"))
+    ],
 )
 async def create_chat_session(
     session_in: ChatSessionCreate,
@@ -51,8 +54,10 @@ async def create_chat_session(
 
 @router.get(
     "",
-    response_model=List[ChatSessionResponse],
-    dependencies=[Depends(RateLimiter(max_requests=60, window_seconds=60, scope="chat:list"))],
+    response_model=list[ChatSessionResponse],
+    dependencies=[
+        Depends(RateLimiter(max_requests=60, window_seconds=60, scope="chat:list"))
+    ],
 )
 async def list_chat_sessions(
     current_user: UserModel = Depends(get_current_user),
@@ -90,7 +95,7 @@ async def delete_chat_session(
 
 @router.get(
     "/{session_id}/messages",
-    response_model=List[ChatMessageResponse],
+    response_model=list[ChatMessageResponse],
 )
 async def get_chat_messages(
     session_id: uuid.UUID,
@@ -105,12 +110,16 @@ def get_chat_stream_service(
     session_factory=Depends(get_session_factory),
     cache_service: ChatCacheService = Depends(get_chat_cache_service),
 ) -> ChatStreamService:
-    return ChatStreamService(session_factory=session_factory, cache_service=cache_service)
+    return ChatStreamService(
+        session_factory=session_factory, cache_service=cache_service
+    )
 
 
 @router.post(
     "/{session_id}/stream",
-    dependencies=[Depends(RateLimiter(max_requests=20, window_seconds=60, scope="chat:stream"))],
+    dependencies=[
+        Depends(RateLimiter(max_requests=20, window_seconds=60, scope="chat:stream"))
+    ],
 )
 async def stream_chat_response(
     session_id: uuid.UUID,

@@ -1,5 +1,5 @@
 # app/providers/factory.py
-from typing import Optional
+
 from app.core.config import settings
 from app.providers.base import BaseLLMProvider
 from app.providers.gemini_provider import GeminiProvider
@@ -7,7 +7,7 @@ from app.providers.ollama_provider import OllamaProvider
 
 
 def get_llm_provider(
-    provider_name: Optional[str] = None,
+    provider_name: str | None = None,
     **kwargs,
 ) -> BaseLLMProvider:
     """

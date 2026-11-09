@@ -1,14 +1,15 @@
 # app/controllers/chat_controller.py
 import uuid
-from typing import List
+
 from fastapi import HTTPException, status
-from app.services.chat_service import ChatService
+
 from app.schemas.chat import (
-    ChatSessionCreate,
-    ChatSessionResponse,
-    ChatSessionDetailResponse,
     ChatMessageResponse,
+    ChatSessionCreate,
+    ChatSessionDetailResponse,
+    ChatSessionResponse,
 )
+from app.services.chat_service import ChatService
 
 
 class ChatController:
@@ -29,7 +30,7 @@ class ChatController:
     async def list_sessions(
         self,
         user_id: uuid.UUID,
-    ) -> List[ChatSessionResponse]:
+    ) -> list[ChatSessionResponse]:
         sessions = await self.service.list_user_sessions(user_id)
         return [ChatSessionResponse.model_validate(s) for s in sessions]
 
@@ -63,7 +64,7 @@ class ChatController:
         self,
         session_id: uuid.UUID,
         user_id: uuid.UUID,
-    ) -> List[ChatMessageResponse]:
+    ) -> list[ChatMessageResponse]:
         messages = await self.service.get_messages(session_id, user_id)
         if messages is None:
             raise HTTPException(

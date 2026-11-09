@@ -1,8 +1,9 @@
 # app/tests/test_memory_manager.py
-import uuid
 import datetime
+import uuid
+
 from app.models.chat import ChatMessageModel
-from app.services.memory_manager import MemoryManager, DEFAULT_SYSTEM_PROMPT
+from app.services.memory_manager import DEFAULT_SYSTEM_PROMPT, MemoryManager
 
 
 def test_memory_manager_builds_default_context():
@@ -39,12 +40,48 @@ def test_memory_manager_sliding_window_trims_oldest():
 
     # 6 historical messages (turn 1, 2, 3)
     history = [
-        ChatMessageModel(id=uuid.uuid4(), session_id=session_id, role="user", content="Turn 1 User", created_at=now),
-        ChatMessageModel(id=uuid.uuid4(), session_id=session_id, role="assistant", content="Turn 1 Bot", created_at=now),
-        ChatMessageModel(id=uuid.uuid4(), session_id=session_id, role="user", content="Turn 2 User", created_at=now),
-        ChatMessageModel(id=uuid.uuid4(), session_id=session_id, role="assistant", content="Turn 2 Bot", created_at=now),
-        ChatMessageModel(id=uuid.uuid4(), session_id=session_id, role="user", content="Turn 3 User", created_at=now),
-        ChatMessageModel(id=uuid.uuid4(), session_id=session_id, role="assistant", content="Turn 3 Bot", created_at=now),
+        ChatMessageModel(
+            id=uuid.uuid4(),
+            session_id=session_id,
+            role="user",
+            content="Turn 1 User",
+            created_at=now,
+        ),
+        ChatMessageModel(
+            id=uuid.uuid4(),
+            session_id=session_id,
+            role="assistant",
+            content="Turn 1 Bot",
+            created_at=now,
+        ),
+        ChatMessageModel(
+            id=uuid.uuid4(),
+            session_id=session_id,
+            role="user",
+            content="Turn 2 User",
+            created_at=now,
+        ),
+        ChatMessageModel(
+            id=uuid.uuid4(),
+            session_id=session_id,
+            role="assistant",
+            content="Turn 2 Bot",
+            created_at=now,
+        ),
+        ChatMessageModel(
+            id=uuid.uuid4(),
+            session_id=session_id,
+            role="user",
+            content="Turn 3 User",
+            created_at=now,
+        ),
+        ChatMessageModel(
+            id=uuid.uuid4(),
+            session_id=session_id,
+            role="assistant",
+            content="Turn 3 Bot",
+            created_at=now,
+        ),
     ]
 
     context = manager.build_context(history=history, new_user_message="Turn 4 User")

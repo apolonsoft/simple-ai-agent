@@ -1,10 +1,12 @@
 # app/tests/test_async_database.py
 import asyncio
-import pytest
 import uuid
+
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import get_db, AsyncSessionLocal
+
+from app.db.session import get_db
 from app.models.user import UserModel
 
 
@@ -64,7 +66,7 @@ async def test_concurrent_async_database_queries(db_session: AsyncSession):
             id=uuid.uuid4(),
             email=f"concurrent_{i}@example.com",
             hashed_password="pw",
-            role="user"
+            role="user",
         )
         db_session.add(user)
     await db_session.commit()

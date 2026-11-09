@@ -1,12 +1,14 @@
 # app/core/redis.py
 import logging
-from typing import Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
+
 import redis.asyncio as aioredis
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_redis_pool: Optional[aioredis.ConnectionPool] = None
+_redis_pool: aioredis.ConnectionPool | None = None
 
 
 def get_redis_pool() -> aioredis.ConnectionPool:

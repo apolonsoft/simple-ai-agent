@@ -1,16 +1,17 @@
 # app/tests/test_llm_providers.py
 import json
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import httpx
-from app.providers.factory import get_llm_provider
-from app.providers.gemini_provider import GeminiProvider
-from app.providers.ollama_provider import OllamaProvider
+import pytest
+
 from app.providers.exceptions import (
     LLMAuthenticationError,
     LLMConnectionError,
-    LLMProviderError,
 )
+from app.providers.factory import get_llm_provider
+from app.providers.gemini_provider import GeminiProvider
+from app.providers.ollama_provider import OllamaProvider
 from app.schemas.llm import LLMMessage
 
 
@@ -31,6 +32,7 @@ def test_factory_returns_expected_provider():
 # GEMINI PROVIDER TESTS
 # ==============================================================================
 
+
 def test_gemini_format_payload():
     provider = GeminiProvider(api_key="test_key", model="gemini-1.5-flash")
     messages = [
@@ -42,12 +44,18 @@ def test_gemini_format_payload():
     payload = provider._format_payload(messages, temperature=0.5, max_tokens=100)
 
     assert "systemInstruction" in payload
-    assert payload["systemInstruction"]["parts"][0]["text"] == "You are a helpful assistant."
+    assert (
+        payload["systemInstruction"]["parts"][0]["text"]
+        == "You are a helpful assistant."
+    )
 
     assert len(payload["contents"]) == 3
     assert payload["contents"][0] == {"role": "user", "parts": [{"text": "Hello!"}]}
     assert payload["contents"][1] == {"role": "model", "parts": [{"text": "Hi there!"}]}
-    assert payload["contents"][2] == {"role": "user", "parts": [{"text": "How are you?"}]}
+    assert payload["contents"][2] == {
+        "role": "user",
+        "parts": [{"text": "How are you?"}],
+    }
 
     assert payload["generationConfig"]["temperature"] == 0.5
     assert payload["generationConfig"]["maxOutputTokens"] == 100
@@ -58,7 +66,9 @@ async def test_gemini_missing_api_key_raises_auth_error():
     provider = GeminiProvider(api_key="")
     messages = [LLMMessage(role="user", content="Test")]
 
-    with pytest.raises(LLMAuthenticationError, match="Gemini API key is not configured"):
+    with pytest.raises(
+        LLMAuthenticationError, match="Gemini API key is not configured"
+    ):
         async for _ in provider.generate_stream(messages):
             pass
 
@@ -120,6 +130,7 @@ async def test_gemini_connection_error():
 # OLLAMA PROVIDER TESTS
 # ==============================================================================
 
+
 def test_ollama_format_payload():
     provider = OllamaProvider(base_url="http://localhost:11434", model="llama3.2")
     messages = [
@@ -144,7 +155,9 @@ async def test_ollama_stream_yields_tokens():
 
     # Simulated NDJSON chunks from Ollama
     ndjson_lines = [
-        json.dumps({"message": {"role": "assistant", "content": "One, "}, "done": False}),
+        json.dumps(
+            {"message": {"role": "assistant", "content": "One, "}, "done": False}
+        ),
         json.dumps({"message": {"role": "assistant", "content": "two!"}, "done": True}),
     ]
 
@@ -184,6 +197,8 @@ async def test_ollama_connection_error():
     mock_client.__aexit__ = AsyncMock(return_value=None)
 
     with patch("httpx.AsyncClient", return_value=mock_client):
-        with pytest.raises(LLMConnectionError, match="Could not connect to Ollama daemon"):
+        with pytest.raises(
+            LLMConnectionError, match="Could not connect to Ollama daemon"
+        ):
             async for _ in provider.generate_stream(messages):
                 pass

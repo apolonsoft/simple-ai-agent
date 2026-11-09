@@ -1,14 +1,13 @@
 # app/services/chat_stream_service.py
 import json
-import uuid
 import logging
-from typing import AsyncGenerator, Optional
-from fastapi import HTTPException, status
+import uuid
+from collections.abc import AsyncGenerator
+
 from app.db.session import AsyncSessionLocal
-from app.models.chat import ChatSessionModel
 from app.providers.factory import get_llm_provider
-from app.services.chat_service import ChatService
 from app.services.chat_cache_service import ChatCacheService
+from app.services.chat_service import ChatService
 from app.services.memory_manager import MemoryManager
 
 logger = logging.getLogger(__name__)
@@ -25,8 +24,8 @@ class ChatStreamService:
     def __init__(
         self,
         session_factory=AsyncSessionLocal,
-        memory_manager: Optional[MemoryManager] = None,
-        cache_service: Optional[ChatCacheService] = None,
+        memory_manager: MemoryManager | None = None,
+        cache_service: ChatCacheService | None = None,
     ):
         self.session_factory = session_factory
         self.memory_manager = memory_manager or MemoryManager()
@@ -37,8 +36,8 @@ class ChatStreamService:
         session_id: uuid.UUID,
         user_id: uuid.UUID,
         user_content: str,
-        provider_name: Optional[str] = None,
-        custom_system_prompt: Optional[str] = None,
+        provider_name: str | None = None,
+        custom_system_prompt: str | None = None,
     ) -> AsyncGenerator[dict, None]:
         # ==============================================================================
         # 1. PRE-INFERENCE PHASE: Check Redis cache, validate session, save turn (~5ms DB time)
@@ -74,7 +73,9 @@ class ChatStreamService:
             )
 
             # Append user message to Redis cache
-            await self.cache_service.append_message(session_id, saved_user_msg or {"role": "user", "content": user_content})
+            await self.cache_service.append_message(
+                session_id, saved_user_msg or {"role": "user", "content": user_content}
+            )
 
             # Build sliding-window context
             llm_messages = self.memory_manager.build_context(
@@ -126,13 +127,17 @@ class ChatStreamService:
                         # Append assistant message to Redis cache
                         await self.cache_service.append_message(session_id, saved_msg)
             except Exception as exc:
-                logger.error(f"Failed to persist assistant message: {exc}", exc_info=True)
+                logger.error(
+                    f"Failed to persist assistant message: {exc}", exc_info=True
+                )
 
         # Signal stream completion
         yield {
             "event": "done",
-            "data": json.dumps({
-                "message_id": assistant_message_id,
-                "status": "completed",
-            }),
+            "data": json.dumps(
+                {
+                    "message_id": assistant_message_id,
+                    "status": "completed",
+                }
+            ),
         }

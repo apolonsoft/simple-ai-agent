@@ -1,6 +1,7 @@
 # app/providers/base.py
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, List
+from collections.abc import AsyncGenerator
+
 from app.schemas.llm import LLMMessage
 
 
@@ -20,7 +21,7 @@ class BaseLLMProvider(ABC):
     @abstractmethod
     async def generate_stream(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs,
@@ -29,11 +30,12 @@ class BaseLLMProvider(ABC):
         Asynchronously streams completion tokens chunk-by-chunk.
         Yields raw text deltas suitable for SSE transmission.
         """
-        pass
+        if False:
+            yield ""
 
     async def generate(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs,

@@ -1,15 +1,23 @@
 # app/tests/test_chat_api.py
-import pytest
 import uuid
-from fastapi import status
+
 import httpx
+import pytest
+from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.services.chat_service import ChatService
 
 
-async def get_auth_token(client: httpx.AsyncClient, email: str = "chat_user@example.com") -> str:
-    await client.post("/api/v1/auth/register", json={"email": email, "password": "password123"})
-    login_res = await client.post("/api/v1/auth/login", data={"username": email, "password": "password123"})
+async def get_auth_token(
+    client: httpx.AsyncClient, email: str = "chat_user@example.com"
+) -> str:
+    await client.post(
+        "/api/v1/auth/register", json={"email": email, "password": "password123"}
+    )
+    login_res = await client.post(
+        "/api/v1/auth/login", data={"username": email, "password": "password123"}
+    )
     return login_res.json()["access_token"]
 
 
@@ -19,12 +27,16 @@ async def test_create_and_list_chat_sessions(client: httpx.AsyncClient):
     headers = {"Authorization": f"Bearer {token}"}
 
     # 1. Create two chat sessions
-    res1 = await client.post("/api/v1/chats", json={"title": "Project Planning"}, headers=headers)
+    res1 = await client.post(
+        "/api/v1/chats", json={"title": "Project Planning"}, headers=headers
+    )
     assert res1.status_code == status.HTTP_201_CREATED
     session1_id = res1.json()["id"]
     assert res1.json()["title"] == "Project Planning"
 
-    res2 = await client.post("/api/v1/chats", json={"title": "Code Review"}, headers=headers)
+    res2 = await client.post(
+        "/api/v1/chats", json={"title": "Code Review"}, headers=headers
+    )
     assert res2.status_code == status.HTTP_201_CREATED
     session2_id = res2.json()["id"]
 
@@ -43,7 +55,9 @@ async def test_get_and_delete_chat_session(client: httpx.AsyncClient):
     token = await get_auth_token(client, "bob_chat@example.com")
     headers = {"Authorization": f"Bearer {token}"}
 
-    create_res = await client.post("/api/v1/chats", json={"title": "Temporary Session"}, headers=headers)
+    create_res = await client.post(
+        "/api/v1/chats", json={"title": "Temporary Session"}, headers=headers
+    )
     session_id = create_res.json()["id"]
 
     # Get session details
@@ -98,19 +112,30 @@ async def test_multi_user_isolation(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_session_message_history(client: httpx.AsyncClient, db_session: AsyncSession):
+async def test_session_message_history(
+    client: httpx.AsyncClient, db_session: AsyncSession
+):
     token = await get_auth_token(client, "history_user@example.com")
     headers = {"Authorization": f"Bearer {token}"}
 
-    create_res = await client.post("/api/v1/chats", json={"title": "History Test"}, headers=headers)
+    create_res = await client.post(
+        "/api/v1/chats", json={"title": "History Test"}, headers=headers
+    )
     session_id = uuid.UUID(create_res.json()["id"])
     me_res = await client.get("/api/v1/auth/me", headers=headers)
     user_id = uuid.UUID(me_res.json()["id"])
 
     # Directly insert messages via ChatService
     service = ChatService(db=db_session)
-    await service.add_message(session_id=session_id, user_id=user_id, role="user", content="Hello!")
-    await service.add_message(session_id=session_id, user_id=user_id, role="assistant", content="Greetings! How can I help?")
+    await service.add_message(
+        session_id=session_id, user_id=user_id, role="user", content="Hello!"
+    )
+    await service.add_message(
+        session_id=session_id,
+        user_id=user_id,
+        role="assistant",
+        content="Greetings! How can I help?",
+    )
 
     # Fetch messages through API
     msg_res = await client.get(f"/api/v1/chats/{session_id}/messages", headers=headers)
@@ -126,7 +151,15 @@ async def test_session_message_history(client: httpx.AsyncClient, db_session: As
 @pytest.mark.asyncio
 async def test_unauthenticated_chat_access_rejected(client: httpx.AsyncClient):
     random_id = uuid.uuid4()
-    assert (await client.get("/api/v1/chats")).status_code == status.HTTP_401_UNAUTHORIZED
-    assert (await client.post("/api/v1/chats", json={})).status_code == status.HTTP_401_UNAUTHORIZED
-    assert (await client.get(f"/api/v1/chats/{random_id}")).status_code == status.HTTP_401_UNAUTHORIZED
-    assert (await client.delete(f"/api/v1/chats/{random_id}")).status_code == status.HTTP_401_UNAUTHORIZED
+    assert (
+        await client.get("/api/v1/chats")
+    ).status_code == status.HTTP_401_UNAUTHORIZED
+    assert (
+        await client.post("/api/v1/chats", json={})
+    ).status_code == status.HTTP_401_UNAUTHORIZED
+    assert (
+        await client.get(f"/api/v1/chats/{random_id}")
+    ).status_code == status.HTTP_401_UNAUTHORIZED
+    assert (
+        await client.delete(f"/api/v1/chats/{random_id}")
+    ).status_code == status.HTTP_401_UNAUTHORIZED

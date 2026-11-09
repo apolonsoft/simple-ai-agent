@@ -2,8 +2,10 @@
 import json
 import logging
 import uuid
-from typing import List, Optional, Union, Any
+from typing import Any
+
 import redis.asyncio as aioredis
+
 from app.core.redis import get_redis_client
 
 logger = logging.getLogger(__name__)
@@ -22,13 +24,13 @@ class ChatCacheService:
 
     def __init__(
         self,
-        redis_client: Optional[aioredis.Redis] = None,
+        redis_client: aioredis.Redis | None = None,
         ttl: int = DEFAULT_CACHE_TTL,
     ):
         self.redis = redis_client
         self.ttl = ttl
 
-    async def _get_client(self) -> Optional[aioredis.Redis]:
+    async def _get_client(self) -> aioredis.Redis | None:
         if self.redis is not None:
             return self.redis
         try:
@@ -37,7 +39,7 @@ class ChatCacheService:
             logger.warning(f"Could not connect to Redis for chat caching: {exc}")
             return None
 
-    def _key(self, session_id: Union[uuid.UUID, str]) -> str:
+    def _key(self, session_id: uuid.UUID | str) -> str:
         return f"chat:history:{str(session_id)}"
 
     def _serialize_message(self, message: Any) -> dict:
@@ -53,7 +55,7 @@ class ChatCacheService:
             "created_at": str(getattr(message, "created_at", "")),
         }
 
-    async def get_messages(self, session_id: Union[uuid.UUID, str]) -> Optional[List[dict]]:
+    async def get_messages(self, session_id: uuid.UUID | str) -> list[dict] | None:
         """
         Retrieves cached conversation turns for the given session.
         Returns None on cache miss or Redis failure (fail-open).
@@ -68,13 +70,15 @@ class ChatCacheService:
                 return json.loads(raw_data)
             return None
         except Exception as exc:
-            logger.warning(f"Redis get_messages cache miss / error for session {session_id}: {exc}")
+            logger.warning(
+                f"Redis get_messages cache miss / error for session {session_id}: {exc}"
+            )
             return None
 
     async def set_messages(
         self,
-        session_id: Union[uuid.UUID, str],
-        messages: List[Any],
+        session_id: uuid.UUID | str,
+        messages: list[Any],
     ) -> bool:
         """
         Stores complete historical message context into Redis with sliding TTL.
@@ -93,7 +97,7 @@ class ChatCacheService:
 
     async def append_message(
         self,
-        session_id: Union[uuid.UUID, str],
+        session_id: uuid.UUID | str,
         message: Any,
     ) -> bool:
         """
@@ -114,10 +118,12 @@ class ChatCacheService:
                 return True
             return False
         except Exception as exc:
-            logger.warning(f"Redis append_message failed for session {session_id}: {exc}")
+            logger.warning(
+                f"Redis append_message failed for session {session_id}: {exc}"
+            )
             return False
 
-    async def invalidate(self, session_id: Union[uuid.UUID, str]) -> bool:
+    async def invalidate(self, session_id: uuid.UUID | str) -> bool:
         """
         Deletes cached conversation history (e.g. upon thread deletion).
         """

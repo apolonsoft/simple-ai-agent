@@ -1,15 +1,18 @@
 # app/tests/test_concurrency_benchmark.py
 import asyncio
 import uuid
-import pytest
 from unittest.mock import patch
-from fastapi import status
+
 import httpx
+import pytest
+from fastapi import status
+
 from app.providers.base import BaseLLMProvider
 
 
 class FastMockStreamingProvider(BaseLLMProvider):
     """Yields token chunks quickly with zero network lag for high-load simulation."""
+
     def __init__(self, token_count: int = 4):
         self.tokens = [f"token_{i} " for i in range(token_count)]
 
@@ -17,7 +20,13 @@ class FastMockStreamingProvider(BaseLLMProvider):
     def provider_name(self) -> str:
         return "fast_mock"
 
-    async def generate_stream(self, messages, **kwargs):
+    async def generate_stream(
+        self,
+        messages,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs,
+    ):
         for t in self.tokens:
             yield t
 
@@ -26,7 +35,9 @@ class FastMockStreamingProvider(BaseLLMProvider):
 
 
 @pytest.mark.asyncio
-async def test_high_concurrency_multi_tenant_streaming_benchmark(client: httpx.AsyncClient):
+async def test_high_concurrency_multi_tenant_streaming_benchmark(
+    client: httpx.AsyncClient,
+):
     """
     High-Concurrency Stress & Pool Safety Benchmark (Task S-2):
     Spawns concurrent virtual users simultaneously registering, logging in,
@@ -68,7 +79,10 @@ async def test_high_concurrency_multi_tenant_streaming_benchmark(client: httpx.A
             session_id = session_res.json()["id"]
 
             # 3. Stream Multi-Turn Responses Concurrently
-            with patch("app.services.chat_stream_service.get_llm_provider", return_value=mock_provider):
+            with patch(
+                "app.services.chat_stream_service.get_llm_provider",
+                return_value=mock_provider,
+            ):
                 stream_res = await client.post(
                     f"/api/v1/chats/{session_id}/stream",
                     json={"content": f"Turn 1 from user {index}"},
@@ -101,6 +115,8 @@ async def test_high_concurrency_multi_tenant_streaming_benchmark(client: httpx.A
 
             return True
 
-    results = await asyncio.gather(*[run_virtual_user(i) for i in range(concurrency_count)])
+    results = await asyncio.gather(
+        *[run_virtual_user(i) for i in range(concurrency_count)]
+    )
     assert all(results)
     assert len(results) == concurrency_count
