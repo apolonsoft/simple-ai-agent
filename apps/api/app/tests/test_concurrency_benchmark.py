@@ -47,7 +47,7 @@ async def test_high_concurrency_multi_tenant_streaming_benchmark(
     concurrency_count = 5
     mock_provider = FastMockStreamingProvider(token_count=3)
     # Semaphore protects SQLite in-memory test driver against parallel DDL table locks
-    sem = asyncio.Semaphore(2)
+    sem = asyncio.Semaphore(1)
 
     async def run_virtual_user(index: int):
         async with sem:

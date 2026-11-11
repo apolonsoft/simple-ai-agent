@@ -14,12 +14,13 @@ This document provides a complete, line-by-line and architectural breakdown of t
    - [Pluggable LLM Strategy Layer (`app/providers/`)](#34-pluggable-llm-strategy-layer-appproviders)
    - [Memory Sliding Window Context Pruner (`app/services/memory_manager.py`)](#35-memory-sliding-window-context-pruner-appservicesmemory_managerpy)
    - [High-Throughput Streaming Coordinator (`app/services/chat_stream_service.py`)](#36-high-throughput-streaming-coordinator-appserviceschat_stream_servicepy)
+   - [Human-in-the-Loop Tool Calling Framework (`app/tools/calculator.py`)](#37-human-in-the-loop-tool-calling-framework-apptoolscalculatorpy)
 4. [Frontend: Architecture, Logic & Code Walkthrough](#4-frontend-architecture-logic--code-walkthrough)
    - [Signal-Driven Authentication State (`core/services/auth.service.ts`)](#41-signal-driven-authentication-state-coreservicesauthservicets)
    - [Functional Route Protection & JWT Interception (`guards/` & `interceptors/`)](#42-functional-route-protection--jwt-interception-guards--interceptors)
    - [Real-Time SSE Streaming Consumer (`core/services/chat.service.ts`)](#43-real-time-sse-streaming-consumer-coreserviceschatservicets)
    - [Safe Markdown & Syntax Highlighting Engine (`shared/pipes/markdown.pipe.ts`)](#44-safe-markdown--syntax-highlighting-engine-sharedpipesmarkdownpipets)
-   - [Reactive Chat Window Viewport (`features/chat/chat-window/`)](#45-reactive-chat-window-viewport-featureschatchat-window)
+   - [Interactive Tool Approval Cards & Chat Viewport (`features/chat/chat-window/`)](#45-interactive-tool-approval-cards--chat-viewport-featureschatchat-window)
    - [Thread Management Sidebar (`features/chat/chat-sidebar/`)](#46-thread-management-sidebar-featureschatchat-sidebar)
 5. [High-Concurrency, Pool Starvation Prevention & Fail-Open Resilience](#5-high-concurrency-pool-starvation-prevention--fail-open-resilience)
 
@@ -48,6 +49,7 @@ flowchart TD
 2. **Zero Connection Pool Starvation**: LLM inference streams take 5–30 seconds. Holding an open PostgreSQL database connection across this window would starve worker connection pools under heavy load. The system implements a **2-phase decoupled transaction pattern**, checking out a database connection for $\sim$5ms before inference and checking out a fresh connection for $\sim$5ms after inference, leaving zero active transactions during token streaming.
 3. **Multi-Tenant Row-Level Isolation**: Users can never view, mutate, or stream into threads owned by other users. Every query filters strictly on `(id == session_id, user_id == current_user.id)`.
 4. **Fail-Open Resilience**: Rate limiting and context caching communicate with Redis in a fail-open configuration. If Redis experiences network degradation or downtime, operations automatically fall back to PostgreSQL without interrupting user conversations.
+5. **Human-in-the-Loop Tool Security**: AI agent tool calling is governed by explicit user approval. When an LLM requests tool execution (e.g. arithmetic calculations), execution is held, state is persisted with `awaiting_approval`, and interactive approval cards are presented to the client. The backend never executes tools without authenticated user authorization.
 
 ---
 
@@ -348,6 +350,93 @@ async def stream_chat(self, session_id, user_id, user_content, ...):
 
 ---
 
+### 3.7. Human-in-the-Loop Tool Calling Framework (`app/tools/calculator.py`)
+
+#### Purpose
+Equips the agent with structured tool calling capabilities (specifically a basic arithmetic calculator) with mandatory client-side human authorization before execution. Rather than running calculations autonomously in the backend, the system separates tool execution into a two-stage transaction:
+1. **Proposal**: Emitted during chat streaming via SSE `event: tool_call` with status `awaiting_approval`.
+2. **Execution/Rejection**: Triggered via `POST /api/v1/chats/{session_id}/tool-calls/approval` by the authenticated user.
+
+#### Tool Definition Schema & Implementation
+```python
+calculator_tool_definition = {
+    "type": "function",
+    "function": {
+        "name": "calculator",
+        "description": "Perform basic arithmetic operations.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "operator": {
+                    "type": "string",
+                    "description": "Arithmetic operation to perform",
+                    "enum": ["add", "subtract", "multiply", "divide"],
+                },
+                "first_number": {
+                    "type": "number",
+                    "description": "First number for the calculation",
+                },
+                "second_number": {
+                    "type": "number",
+                    "description": "Second number for the calculation",
+                },
+            },
+            "required": ["operator", "first_number", "second_number"],
+        },
+    },
+}
+
+def calculator(operator: str, first_number: float, second_number: float):
+    if operator == "add":
+        return first_number + second_number
+    elif operator == "subtract":
+        return first_number - second_number
+    elif operator == "multiply":
+        return first_number * second_number
+    elif operator == "divide":
+        if second_number == 0:
+            raise ValueError("Cannot divide by zero")
+        return first_number / second_number
+    else:
+        raise ValueError(f"Unsupported operator: {operator}")
+```
+
+#### Tool Approval & Follow-up Streaming Lifecycle
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User (Angular Client)
+    participant API as FastAPI Router
+    participant Stream as ChatStreamService
+    participant LLM as LLM Provider (Gemini/Ollama)
+    participant Tool as Tool Registry (calculator)
+    participant DB as PostgreSQL & Redis
+
+    User->>API: POST /chats/{sessionId}/stream ("What is 45 * 123?")
+    API->>Stream: stream_chat()
+    Stream->>LLM: generate_stream(messages, tools)
+    LLM-->>Stream: Tool Call: calculator(multiply, 45, 123)
+    Stream-->>User: SSE event: tool_call (status: pending)
+    Stream->>DB: Save assistant message (tool_calls JSON, status: pending)
+    Stream-->>User: SSE event: done (status: awaiting_approval)
+
+    Note over User: User reviews parameters in UI<br/>Clicks "Approve & Run"
+
+    User->>API: POST /chats/{sessionId}/tool-calls/approval (approved: true)
+    API->>Stream: stream_tool_approval()
+    Stream->>Tool: execute_tool("calculator", args)
+    Tool-->>Stream: Result: 5535
+    Stream->>DB: Update tool call status="executed", result=5535
+    Stream-->>User: SSE event: tool_result (result: 5535)
+    Stream->>LLM: generate_stream(updated context with tool result)
+    LLM-->>Stream: Stream tokens ("45 multiplied by 123 is 5,535.")
+    Stream-->>User: SSE event: chunk ("45 multiplied by 123 is 5,535.")
+    Stream->>DB: Append final assistant prose to message
+    Stream-->>User: SSE event: done (status: completed)
+```
+
+---
+
 ## 4. Frontend: Architecture, Logic & Code Walkthrough
 
 ### 4.1. Signal-Driven Authentication State (`core/services/auth.service.ts`)
@@ -586,8 +675,13 @@ export class MarkdownPipe implements PipeTransform {
 
 ---
 
-### 4.5. Reactive Chat Window Viewport (`features/chat/chat-window/`)
+### 4.5. Interactive Tool Approval Cards & Chat Viewport (`features/chat/chat-window/`)
 
+- **Interactive Tool Approval Cards**: When an assistant turn contains `tool_calls`, the window renders a dedicated tool card:
+  - **Header**: Tool name (e.g., `calculator`) with dynamic status badge (`Approval Required`, `Approved (Running...)`, `Executed`, `Rejected`).
+  - **Parameters Grid**: Renders each parameter as an inspected chip (e.g. `operator: multiply`, `first_number: 45`, `second_number: 123`).
+  - **Human-in-the-Loop Actions**: When `status === 'pending'`, renders **Approve & Run** and **Reject** buttons that trigger `chatService.approveToolCall()`.
+  - **Execution Results**: Once approved and executed, displays the output value directly in the card before streaming the assistant's final response prose.
 - **Component Input Binding**: Uses Angular 16+ `input<string | null>()` bound directly to the route parameter `:sessionId`.
 - **Auto-Scrolling**: Utilizes `effect()` watching the `messages()` signal, automatically scrolling the viewport to `el.scrollHeight` when new tokens arrive.
 - **Keyboard Shortcuts**: Enter submits the prompt; Shift+Enter creates a new line.
@@ -615,6 +709,6 @@ In this application:
 Total connection checkout duration per request is reduced from **10,000ms** to **10ms** ($\mathbf{1,000\times}$ efficiency multiplier).
 
 ### 2. Verified Test Suite Results
-- **Backend Tests (45/45 passing)**: Full verification of async sessions, rate limiting, LLM adapters, memory manager, SSE generators, and concurrent benchmarks.
-- **Frontend Tests (50/50 passing across 12 suites)**: Full verification of components, services, pipes, interceptors, and guards.
-- **Total**: **95/95 tests passing (100% pass rate)**.
+- **Backend Tests (50/50 passing)**: Full verification of async sessions, rate limiting, LLM adapters, memory manager, calculator tools, human approval/rejection lifecycle, SSE generators, and concurrent benchmarks.
+- **Frontend Tests (57/57 passing across 12 suites)**: Full verification of components, services, pipes, interceptors, tool call event streaming, approval cards, and route guards.
+- **Total**: **107/107 tests passing (100% pass rate)**.
