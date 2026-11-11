@@ -2,7 +2,7 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
-import { ChatSession, ChatMessage, CreateSessionRequest } from '../models/chat.model';
+import { ChatSession, ChatMessage, CreateSessionRequest, ToolCall } from '../models/chat.model';
 
 @Injectable({
   providedIn: 'root',
@@ -23,6 +23,7 @@ export class ChatService {
   readonly messages = signal<ChatMessage[]>([]);
   readonly isLoadingMessages = signal<boolean>(false);
   readonly isStreaming = signal<boolean>(false);
+  readonly isExecutingTool = signal<boolean>(false);
   readonly streamError = signal<string | null>(null);
 
   readonly activeSession = computed(() => {
@@ -202,6 +203,91 @@ export class ChatService {
     }
   }
 
+  async approveToolCall(
+    sessionId: string,
+    messageId: string | undefined,
+    toolCallId: string,
+    approved: boolean
+  ): Promise<void> {
+    if (this.isExecutingTool()) return;
+
+    this.isExecutingTool.set(true);
+    this.streamError.set(null);
+
+    // Optimistically update status
+    this.updateToolCallStatus(toolCallId, approved ? 'approved' : 'rejected');
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const token = localStorage.getItem('token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(`/api/v1/chats/${sessionId}/tool-calls/approval`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          tool_call_id: toolCallId,
+          approved,
+          message_id: messageId,
+        }),
+      });
+
+      if (!response.ok) {
+        let errorDetail = `Server returned HTTP ${response.status}`;
+        try {
+          const errData = await response.json();
+          if (errData.detail) errorDetail = errData.detail;
+        } catch {
+          // ignore
+        }
+        this.handleStreamError(errorDetail);
+        return;
+      }
+
+      if (!response.body) {
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split(/(?:\r\n\r\n|\r\r|\n\n)/);
+        buffer = blocks.pop() || '';
+
+        for (const block of blocks) {
+          if (block.trim()) {
+            this.processSseBlock(block);
+          }
+        }
+      }
+
+      if (buffer.trim()) {
+        const remainingBlocks = buffer.split(/(?:\r\n\r\n|\r\r|\n\n)/);
+        for (const block of remainingBlocks) {
+          if (block.trim()) {
+            this.processSseBlock(block);
+          }
+        }
+        buffer = '';
+      }
+    } catch (error: any) {
+      this.handleStreamError(error?.message || 'Failed to process tool approval.');
+    } finally {
+      this.isExecutingTool.set(false);
+      this.finalizeAssistantMessage();
+    }
+  }
+
   abortStream(): void {
     if (this.abortController) {
       this.abortController.abort();
@@ -232,9 +318,25 @@ export class ChatService {
       const parsed = JSON.parse(dataStr);
       if (eventType === 'error' || parsed.error) {
         this.handleStreamError(parsed.error || 'Generation error');
-      } else if (eventType === 'done' || parsed.status === 'completed') {
+      } else if (eventType === 'tool_call') {
+        const tc: ToolCall = {
+          id: parsed.id,
+          tool: parsed.tool || parsed.name || 'calculator',
+          arguments: parsed.arguments || {},
+          status: (parsed.status as any) || 'pending',
+          result: parsed.result,
+        };
+        this.addToolCallToAssistant(tc);
+      } else if (eventType === 'tool_result') {
+        this.updateToolCallResult(parsed.tool_call_id, parsed.status, parsed.result);
+      } else if (eventType === 'done' || parsed.status === 'completed' || parsed.status === 'awaiting_approval') {
         if (parsed.message_id) {
           this.updateAssistantMessageId(parsed.message_id);
+        }
+        if (parsed.tool_calls && Array.isArray(parsed.tool_calls)) {
+          for (const tc of parsed.tool_calls) {
+            this.addToolCallToAssistant(tc);
+          }
         }
         this.finalizeAssistantMessage();
       } else if (eventType === 'chunk' || parsed.content !== undefined) {
@@ -247,6 +349,59 @@ export class ChatService {
         this.appendAssistantToken(dataStr);
       }
     }
+  }
+
+  private addToolCallToAssistant(tc: ToolCall): void {
+    this.messages.update((list) => {
+      if (list.length === 0) return list;
+      const lastIdx = list.length - 1;
+      const last = list[lastIdx];
+      if (last.role === 'assistant') {
+        const existingCalls = last.tool_calls || [];
+        const alreadyExists = existingCalls.some((c) => c.id === tc.id);
+        const updatedCalls = alreadyExists
+          ? existingCalls.map((c) => (c.id === tc.id ? { ...c, ...tc } : c))
+          : [...existingCalls, tc];
+
+        const updated: ChatMessage = {
+          ...last,
+          tool_calls: updatedCalls,
+        };
+        return [...list.slice(0, lastIdx), updated];
+      }
+      return list;
+    });
+  }
+
+  private updateToolCallStatus(
+    toolCallId: string,
+    status: 'pending' | 'approved' | 'rejected' | 'executed'
+  ): void {
+    this.messages.update((list) =>
+      list.map((msg) => {
+        if (!msg.tool_calls) return msg;
+        const updated = msg.tool_calls.map((c) =>
+          c.id === toolCallId ? { ...c, status } : c
+        );
+        return { ...msg, tool_calls: updated };
+      })
+    );
+  }
+
+  private updateToolCallResult(
+    toolCallId: string,
+    status: 'executed' | 'rejected',
+    result?: any
+  ): void {
+    this.messages.update((list) =>
+      list.map((msg) => {
+        if (!msg.tool_calls) return msg;
+        const updated = msg.tool_calls.map((c) =>
+          c.id === toolCallId ? { ...c, status, result } : c
+        );
+        return { ...msg, tool_calls: updated };
+      })
+    );
   }
 
   private updateAssistantMessageId(messageId: string): void {

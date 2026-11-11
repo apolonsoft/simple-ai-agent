@@ -264,4 +264,156 @@ describe('ChatService', () => {
     expect(msgs[1].content).toContain('Provider API key is invalid');
     expect(service.isStreaming()).toBe(false);
   });
+
+  it('should parse event: tool_call and attach tool_call object to assistant message', async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(
+          encoder.encode(
+            'event: tool_call\r\ndata: {"id": "call-123", "tool": "calculator", "arguments": {"operator": "add", "first_number": 5, "second_number": 10}, "status": "pending"}\r\n\r\n'
+          )
+        );
+        controller.enqueue(
+          encoder.encode('event: done\r\ndata: {"status": "awaiting_approval"}\r\n\r\n')
+        );
+        controller.close();
+      },
+    });
+
+    const mockResponse = new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse);
+
+    await service.sendMessageStream('session-1', 'Add 5 and 10');
+
+    const msgs = service.messages();
+    expect(msgs.length).toBe(2);
+    const assistant = msgs[1];
+    expect(assistant.tool_calls).toBeDefined();
+    expect(assistant.tool_calls?.length).toBe(1);
+    expect(assistant.tool_calls?.[0]).toEqual({
+      id: 'call-123',
+      tool: 'calculator',
+      arguments: { operator: 'add', first_number: 5, second_number: 10 },
+      status: 'pending',
+      result: undefined,
+    });
+  });
+
+  it('should approve tool call, stream result and follow-up tokens', async () => {
+    service.messages.set([
+      { role: 'user', content: 'What is 10 * 10?' },
+      {
+        id: 'msg-ast-1',
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-mult',
+            tool: 'calculator',
+            arguments: { operator: 'multiply', first_number: 10, second_number: 10 },
+            status: 'pending',
+          },
+        ],
+      },
+    ]);
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(
+          encoder.encode(
+            'event: tool_result\r\ndata: {"tool_call_id": "call-mult", "status": "executed", "result": 100}\r\n\r\n'
+          )
+        );
+        controller.enqueue(
+          encoder.encode('event: chunk\r\ndata: {"content": "The result is 100."}\r\n\r\n')
+        );
+        controller.enqueue(
+          encoder.encode('event: done\r\ndata: {"status": "completed"}\r\n\r\n')
+        );
+        controller.close();
+      },
+    });
+
+    const mockResponse = new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse);
+
+    await service.approveToolCall('session-1', 'msg-ast-1', 'call-mult', true);
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/v1/chats/session-1/tool-calls/approval',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          tool_call_id: 'call-mult',
+          approved: true,
+          message_id: 'msg-ast-1',
+        }),
+      })
+    );
+
+    const msgs = service.messages();
+    const assistant = msgs[1];
+    expect(assistant.tool_calls?.[0].status).toBe('executed');
+    expect(assistant.tool_calls?.[0].result).toBe(100);
+    expect(assistant.content).toBe('The result is 100.');
+    expect(service.isExecutingTool()).toBe(false);
+  });
+
+  it('should reject tool call and update tool call status to rejected', async () => {
+    service.messages.set([
+      { role: 'user', content: 'Calculate 50 / 2' },
+      {
+        id: 'msg-ast-2',
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-div',
+            tool: 'calculator',
+            arguments: { operator: 'divide', first_number: 50, second_number: 2 },
+            status: 'pending',
+          },
+        ],
+      },
+    ]);
+
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(
+          encoder.encode(
+            'event: tool_result\r\ndata: {"tool_call_id": "call-div", "status": "rejected", "result": "Denied"}\r\n\r\n'
+          )
+        );
+        controller.enqueue(
+          encoder.encode('event: done\r\ndata: {"status": "completed"}\r\n\r\n')
+        );
+        controller.close();
+      },
+    });
+
+    const mockResponse = new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse);
+
+    await service.approveToolCall('session-1', 'msg-ast-2', 'call-div', false);
+
+    const msgs = service.messages();
+    const assistant = msgs[1];
+    expect(assistant.tool_calls?.[0].status).toBe('rejected');
+    expect(service.isExecutingTool()).toBe(false);
+  });
 });

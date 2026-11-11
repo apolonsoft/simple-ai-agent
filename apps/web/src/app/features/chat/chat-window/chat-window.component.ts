@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ChatMessage, ToolCall } from '../../../core/models/chat.model';
 import { ChatService } from '../../../core/services/chat.service';
 import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
 
@@ -33,6 +34,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   readonly messages = this.chatService.messages;
   readonly isLoadingMessages = this.chatService.isLoadingMessages;
   readonly isStreaming = this.chatService.isStreaming;
+  readonly isExecutingTool = this.chatService.isExecutingTool;
   readonly streamError = this.chatService.streamError;
 
   promptText: string = '';
@@ -101,6 +103,26 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
 
   onAbort(): void {
     this.chatService.abortStream();
+  }
+
+  onApproveTool(msg: ChatMessage, tc: ToolCall): void {
+    const sid = this.sessionId();
+    if (!sid || this.isExecutingTool()) return;
+    this.chatService.approveToolCall(sid, msg.id, tc.id, true);
+  }
+
+  onRejectTool(msg: ChatMessage, tc: ToolCall): void {
+    const sid = this.sessionId();
+    if (!sid || this.isExecutingTool()) return;
+    this.chatService.approveToolCall(sid, msg.id, tc.id, false);
+  }
+
+  getToolParams(args: Record<string, any> | undefined): { key: string; value: string }[] {
+    if (!args) return [];
+    return Object.entries(args).map(([key, val]) => ({
+      key,
+      value: typeof val === 'object' ? JSON.stringify(val) : String(val),
+    }));
   }
 
   onMessagesClick(event: MouseEvent): void {

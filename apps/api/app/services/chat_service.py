@@ -1,6 +1,7 @@
 # app/services/chat_service.py
+import json
 import uuid
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,18 +82,21 @@ class ChatService:
         role: str,
         content: str,
         tokens: int | None = None,
+        tool_calls: list[dict[str, Any]] | None = None,
     ) -> ChatMessageModel | None:
         """Adds a message to a session after confirming user ownership."""
         session = await self.get_session(session_id, user_id)
         if not session:
             return None
 
+        tool_calls_json = json.dumps(tool_calls) if tool_calls else None
         message = ChatMessageModel(
             id=uuid.uuid4(),
             session_id=session_id,
             role=role,
             content=content,
             tokens=tokens,
+            tool_calls=tool_calls_json,
         )
         self.db.add(message)
         await self.db.commit()
@@ -115,3 +119,78 @@ class ChatService:
         )
         result = await self.db.scalars(stmt)
         return list(result.all())
+
+    async def get_message_by_tool_call_id(
+        self,
+        session_id: uuid.UUID,
+        tool_call_id: str,
+    ) -> ChatMessageModel | None:
+        """Finds a message containing a specific tool_call_id."""
+        stmt = (
+            select(ChatMessageModel)
+            .where(
+                ChatMessageModel.session_id == session_id,
+                ChatMessageModel.tool_calls.isnot(None),
+            )
+            .order_by(ChatMessageModel.created_at.desc())
+        )
+        result = await self.db.scalars(stmt)
+        for msg in result.all():
+            if not msg.tool_calls:
+                continue
+            try:
+                calls = json.loads(msg.tool_calls)
+                if any(c.get("id") == tool_call_id for c in calls):
+                    return msg
+            except Exception:
+                continue
+        return None
+
+    async def update_message_tool_call(
+        self,
+        message: ChatMessageModel,
+        tool_call_id: str,
+        status: str,
+        result: Any | None = None,
+        append_content: str | None = None,
+    ) -> ChatMessageModel:
+        """Updates tool call status and optional result in a message."""
+        calls = []
+        if message.tool_calls:
+            try:
+                calls = json.loads(message.tool_calls)
+            except Exception:
+                calls = []
+
+        found = False
+        for c in calls:
+            if c.get("id") == tool_call_id:
+                c["status"] = status
+                if result is not None:
+                    c["result"] = result
+                found = True
+                break
+
+        if not found:
+            calls.append(
+                {
+                    "id": tool_call_id,
+                    "status": status,
+                    "result": result,
+                }
+            )
+
+        message.tool_calls = json.dumps(calls)
+        if append_content:
+            if message.content:
+                message.content += append_content
+            else:
+                message.content = append_content.lstrip()
+
+        await self.db.commit()
+        await self.db.refresh(message)
+
+        if self.cache_service is not None:
+            await self.cache_service.invalidate(message.session_id)
+
+        return message

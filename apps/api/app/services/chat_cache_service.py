@@ -1,4 +1,5 @@
 # app/services/chat_cache_service.py
+import contextlib
 import json
 import logging
 import uuid
@@ -44,16 +45,28 @@ class ChatCacheService:
 
     def _serialize_message(self, message: Any) -> dict:
         if isinstance(message, dict):
-            return {
+            res = {
                 "role": str(message.get("role", "user")),
                 "content": str(message.get("content", "")),
                 "created_at": str(message.get("created_at", "")),
             }
-        return {
+            if "tool_calls" in message and message["tool_calls"] is not None:
+                res["tool_calls"] = message["tool_calls"]
+            return res
+
+        tool_calls = getattr(message, "tool_calls", None)
+        if isinstance(tool_calls, str):
+            with contextlib.suppress(Exception):
+                tool_calls = json.loads(tool_calls)
+
+        res = {
             "role": str(getattr(message, "role", "user")),
             "content": str(getattr(message, "content", "")),
             "created_at": str(getattr(message, "created_at", "")),
         }
+        if tool_calls is not None:
+            res["tool_calls"] = tool_calls
+        return res
 
     async def get_messages(self, session_id: uuid.UUID | str) -> list[dict] | None:
         """

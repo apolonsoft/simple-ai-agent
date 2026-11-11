@@ -30,6 +30,9 @@
             <button class="quick-chip" (click)="setQuickPrompt('Explain how PostgreSQL connection pooling prevents LLM starvation.')">
               💡 Connection Pooling Architecture
             </button>
+            <button class="quick-chip" (click)="setQuickPrompt('Calculate 45 * 123 using the calculator tool.')">
+              🧮 Calculator Tool Calling
+            </button>
             <button class="quick-chip" (click)="setQuickPrompt('Review the async sliding-window rate limiter in Redis.')">
               ⚡ Redis Rate Limiter Deep Dive
             </button>
@@ -65,7 +68,78 @@
 
                 <div class="bubble-content">
                   @if (msg.role === 'assistant') {
-                    <div class="markdown-body" [innerHTML]="msg.content | markdown"></div>
+                    @if (msg.tool_calls && msg.tool_calls.length > 0) {
+                      <div class="tool-calls-container">
+                        @for (tc of msg.tool_calls; track tc.id) {
+                          <div class="tool-call-card" [class]="'status-' + (tc.status || 'pending')">
+                            <div class="tool-call-header">
+                              <div class="tool-title">
+                                <span class="tool-icon">🧮</span>
+                                <span class="tool-name">Tool: <strong>{{ tc.tool }}</strong></span>
+                              </div>
+                              <span class="tool-badge" [class]="'badge-' + (tc.status || 'pending')">
+                                {{ tc.status === 'executed' ? 'Executed' : tc.status === 'rejected' ? 'Rejected' : tc.status === 'approved' ? 'Approved (Running...)' : 'Approval Required' }}
+                              </span>
+                            </div>
+
+                            <div class="tool-call-body">
+                              <div class="tool-args-section">
+                                <span class="tool-section-label">Parameters:</span>
+                                <div class="tool-args-grid">
+                                  @for (param of getToolParams(tc.arguments); track param.key) {
+                                    <div class="tool-arg-chip">
+                                      <span class="arg-key">{{ param.key }}:</span>
+                                      <span class="arg-val">{{ param.value }}</span>
+                                    </div>
+                                  }
+                                </div>
+                              </div>
+
+                              @if (tc.status === 'executed' && tc.result !== undefined) {
+                                <div class="tool-result-section">
+                                  <span class="tool-section-label">Result:</span>
+                                  <span class="tool-result-value">{{ tc.result }}</span>
+                                </div>
+                              }
+
+                              @if (tc.status === 'rejected') {
+                                <div class="tool-result-section rejected-section">
+                                  <span class="tool-section-label">Status:</span>
+                                  <span class="tool-rejected-text">Action rejected by user. Tool was not executed.</span>
+                                </div>
+                              }
+                            </div>
+
+                            @if (!tc.status || tc.status === 'pending') {
+                              <div class="tool-approval-actions">
+                                <button
+                                  type="button"
+                                  class="btn-approve"
+                                  [disabled]="isExecutingTool()"
+                                  (click)="onApproveTool(msg, tc)"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                  Approve & Run
+                                </button>
+                                <button
+                                  type="button"
+                                  class="btn-reject"
+                                  [disabled]="isExecutingTool()"
+                                  (click)="onRejectTool(msg, tc)"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                  Reject
+                                </button>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+
+                    @if (msg.content) {
+                      <div class="markdown-body" [innerHTML]="msg.content | markdown"></div>
+                    }
                     @if (msg.isStreaming) {
                       <span class="streaming-cursor" title="Streaming token generation..."></span>
                     }

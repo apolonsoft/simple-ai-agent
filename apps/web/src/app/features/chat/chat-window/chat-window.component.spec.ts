@@ -12,6 +12,7 @@ describe('ChatWindowComponent', () => {
   const messagesSignal = signal<ChatMessage[]>([]);
   const isLoadingMessagesSignal = signal<boolean>(false);
   const isStreamingSignal = signal<boolean>(false);
+  const isExecutingToolSignal = signal<boolean>(false);
   const streamErrorSignal = signal<string | null>(null);
 
   let mockChatService: {
@@ -19,9 +20,11 @@ describe('ChatWindowComponent', () => {
     messages: typeof messagesSignal;
     isLoadingMessages: typeof isLoadingMessagesSignal;
     isStreaming: typeof isStreamingSignal;
+    isExecutingTool: typeof isExecutingToolSignal;
     streamError: typeof streamErrorSignal;
     selectSession: ReturnType<typeof vi.fn>;
     sendMessageStream: ReturnType<typeof vi.fn>;
+    approveToolCall: ReturnType<typeof vi.fn>;
     abortStream: ReturnType<typeof vi.fn>;
   };
 
@@ -30,6 +33,7 @@ describe('ChatWindowComponent', () => {
     messagesSignal.set([]);
     isLoadingMessagesSignal.set(false);
     isStreamingSignal.set(false);
+    isExecutingToolSignal.set(false);
     streamErrorSignal.set(null);
 
     mockChatService = {
@@ -37,9 +41,11 @@ describe('ChatWindowComponent', () => {
       messages: messagesSignal,
       isLoadingMessages: isLoadingMessagesSignal,
       isStreaming: isStreamingSignal,
+      isExecutingTool: isExecutingToolSignal,
       streamError: streamErrorSignal,
       selectSession: vi.fn(),
       sendMessageStream: vi.fn().mockResolvedValue(undefined),
+      approveToolCall: vi.fn().mockResolvedValue(undefined),
       abortStream: vi.fn(),
     };
 
@@ -126,5 +132,107 @@ describe('ChatWindowComponent', () => {
 
     stopBtn.click();
     expect(mockChatService.abortStream).toHaveBeenCalled();
+  });
+
+  it('should render tool call approval card and handle Approve & Run button click', () => {
+    fixture.componentRef.setInput('sessionId', 'session-42');
+    messagesSignal.set([
+      {
+        role: 'user',
+        content: 'Multiply 6 by 7',
+      },
+      {
+        id: 'msg-tool-1',
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-calc-1',
+            tool: 'calculator',
+            arguments: { operator: 'multiply', first_number: 6, second_number: 7 },
+            status: 'pending',
+          },
+        ],
+      },
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const toolCard = compiled.querySelector('.tool-call-card');
+    expect(toolCard).toBeTruthy();
+    expect(toolCard?.textContent).toContain('calculator');
+    expect(toolCard?.textContent).toContain('Approval Required');
+    expect(toolCard?.textContent).toContain('operator');
+    expect(toolCard?.textContent).toContain('multiply');
+
+    const approveBtn = toolCard?.querySelector('.btn-approve') as HTMLButtonElement;
+    expect(approveBtn).toBeTruthy();
+
+    approveBtn.click();
+    expect(mockChatService.approveToolCall).toHaveBeenCalledWith(
+      'session-42',
+      'msg-tool-1',
+      'call-calc-1',
+      true
+    );
+  });
+
+  it('should handle tool call Reject button click', () => {
+    fixture.componentRef.setInput('sessionId', 'session-42');
+    messagesSignal.set([
+      {
+        id: 'msg-tool-2',
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-calc-2',
+            tool: 'calculator',
+            arguments: { operator: 'divide', first_number: 10, second_number: 0 },
+            status: 'pending',
+          },
+        ],
+      },
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const rejectBtn = compiled.querySelector('.btn-reject') as HTMLButtonElement;
+    expect(rejectBtn).toBeTruthy();
+
+    rejectBtn.click();
+    expect(mockChatService.approveToolCall).toHaveBeenCalledWith(
+      'session-42',
+      'msg-tool-2',
+      'call-calc-2',
+      false
+    );
+  });
+
+  it('should render executed tool call result', () => {
+    fixture.componentRef.setInput('sessionId', 'session-42');
+    messagesSignal.set([
+      {
+        id: 'msg-tool-3',
+        role: 'assistant',
+        content: 'Here is the answer.',
+        tool_calls: [
+          {
+            id: 'call-calc-3',
+            tool: 'calculator',
+            arguments: { operator: 'add', first_number: 15, second_number: 25 },
+            status: 'executed',
+            result: 40,
+          },
+        ],
+      },
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const toolCard = compiled.querySelector('.tool-call-card');
+    expect(toolCard?.textContent).toContain('Executed');
+    expect(toolCard?.textContent).toContain('40');
+    expect(toolCard?.querySelector('.btn-approve')).toBeFalsy();
   });
 });

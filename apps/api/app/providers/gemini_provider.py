@@ -41,6 +41,7 @@ class GeminiProvider(BaseLLMProvider):
         messages: list[LLMMessage],
         temperature: float,
         max_tokens: int | None,
+        tools: list[dict] | None = None,
     ) -> dict:
         contents = []
         system_instruction = None
@@ -53,7 +54,7 @@ class GeminiProvider(BaseLLMProvider):
             elif msg.role == "assistant":
                 contents.append({"role": "model", "parts": [{"text": msg.content}]})
 
-        payload = {"contents": contents}
+        payload: dict = {"contents": contents}
 
         if system_instruction:
             payload["systemInstruction"] = system_instruction
@@ -63,6 +64,21 @@ class GeminiProvider(BaseLLMProvider):
             generation_config["maxOutputTokens"] = max_tokens
         payload["generationConfig"] = generation_config
 
+        if tools:
+            gemini_tools = []
+            for tool in tools:
+                if tool.get("type") == "function" and "function" in tool:
+                    fn = tool["function"]
+                    gemini_tools.append(
+                        {
+                            "name": fn["name"],
+                            "description": fn.get("description", ""),
+                            "parameters": fn.get("parameters", {}),
+                        }
+                    )
+            if gemini_tools:
+                payload["tools"] = [{"functionDeclarations": gemini_tools}]
+
         return payload
 
     async def generate_stream(
@@ -71,14 +87,20 @@ class GeminiProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[str | dict, None]:
+        tools = kwargs.get("tools")
         if not self.api_key or self.api_key.startswith("your_"):
             raise LLMAuthenticationError(
                 "Gemini API key is not configured. Set GEMINI_API_KEY in your environment."
             )
 
         url = f"{self.base_url}/models/{self.model}:streamGenerateContent?alt=sse&key={self.api_key}"
-        payload = self._format_payload(messages, temperature, max_tokens)
+        payload = self._format_payload(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            tools=tools,
+        )
 
         timeout = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -115,6 +137,13 @@ class GeminiProvider(BaseLLMProvider):
                                 text_chunk = part.get("text", "")
                                 if text_chunk:
                                     yield text_chunk
+                                func_call = part.get("functionCall")
+                                if func_call:
+                                    yield {
+                                        "type": "tool_call",
+                                        "name": func_call.get("name"),
+                                        "arguments": func_call.get("args", {}),
+                                    }
                         except json.JSONDecodeError:
                             continue
 

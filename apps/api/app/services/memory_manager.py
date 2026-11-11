@@ -11,6 +11,12 @@ DEFAULT_SYSTEM_PROMPT = (
     "and helpful responses formatted in markdown."
 )
 
+TOOL_SYSTEM_INSTRUCTION = (
+    "\nYou have access to the 'calculator' tool for arithmetic operations "
+    "(add, subtract, multiply, divide). When a calculation is requested, "
+    "use the calculator tool."
+)
+
 
 class MemoryManager:
     """
@@ -32,6 +38,7 @@ class MemoryManager:
         history: Sequence[ChatMessageModel | dict],
         new_user_message: str | None = None,
         custom_system_prompt: str | None = None,
+        include_tools: bool = False,
     ) -> list[LLMMessage]:
         """
         Assembles prompt context for LLM:
@@ -40,6 +47,9 @@ class MemoryManager:
         3. Appends the newest incoming user message.
         """
         system_instruction = custom_system_prompt or self.default_system_prompt
+        if include_tools:
+            system_instruction += TOOL_SYSTEM_INSTRUCTION
+
         context: list[LLMMessage] = [
             LLMMessage(role="system", content=system_instruction)
         ]
@@ -58,6 +68,13 @@ class MemoryManager:
                 if isinstance(msg, dict)
                 else getattr(msg, "content", "")
             ) or ""
+            if not content.strip():
+                tool_calls = (
+                    msg.get("tool_calls")
+                    if isinstance(msg, dict)
+                    else getattr(msg, "tool_calls", None)
+                )
+                content = f"Tool call: {tool_calls}" if tool_calls else "..."
             if role in ("user", "assistant", "system"):
                 context.append(
                     LLMMessage(

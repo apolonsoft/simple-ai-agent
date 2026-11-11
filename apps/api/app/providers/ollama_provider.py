@@ -1,4 +1,5 @@
 # app/providers/ollama_provider.py
+import contextlib
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -39,6 +40,7 @@ class OllamaProvider(BaseLLMProvider):
         messages: list[LLMMessage],
         temperature: float,
         max_tokens: int | None,
+        tools: list[dict] | None = None,
     ) -> dict:
         formatted_messages = [
             {"role": msg.role, "content": msg.content} for msg in messages
@@ -47,12 +49,15 @@ class OllamaProvider(BaseLLMProvider):
         if max_tokens:
             options["num_predict"] = max_tokens
 
-        return {
+        payload: dict = {
             "model": self.model,
             "messages": formatted_messages,
             "stream": True,
             "options": options,
         }
+        if tools:
+            payload["tools"] = tools
+        return payload
 
     async def generate_stream(
         self,
@@ -60,9 +65,15 @@ class OllamaProvider(BaseLLMProvider):
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[str | dict, None]:
+        tools = kwargs.get("tools")
         url = f"{self.base_url}/api/chat"
-        payload = self._format_payload(messages, temperature, max_tokens)
+        payload = self._format_payload(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            tools=tools,
+        )
 
         timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -85,9 +96,22 @@ class OllamaProvider(BaseLLMProvider):
 
                         try:
                             data = json.loads(line)
-                            chunk = data.get("message", {}).get("content", "")
+                            msg = data.get("message", {})
+                            chunk = msg.get("content", "")
                             if chunk:
                                 yield chunk
+                            tool_calls = msg.get("tool_calls", [])
+                            for tc in tool_calls:
+                                fn = tc.get("function", {})
+                                args = fn.get("arguments", {})
+                                if isinstance(args, str):
+                                    with contextlib.suppress(Exception):
+                                        args = json.loads(args)
+                                yield {
+                                    "type": "tool_call",
+                                    "name": fn.get("name"),
+                                    "arguments": args,
+                                }
                             if data.get("done", False):
                                 break
                         except json.JSONDecodeError:

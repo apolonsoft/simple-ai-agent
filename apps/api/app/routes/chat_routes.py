@@ -16,6 +16,7 @@ from app.schemas.chat import (
     ChatSessionCreate,
     ChatSessionDetailResponse,
     ChatSessionResponse,
+    ToolApprovalRequest,
 )
 from app.services.chat_cache_service import ChatCacheService
 from app.services.chat_service import ChatService
@@ -145,5 +146,42 @@ async def stream_chat_response(
         session_id=session_id,
         user_id=current_user.id,
         user_content=message_in.content,
+    )
+    return EventSourceResponse(generator)
+
+
+@router.post(
+    "/{session_id}/tool-calls/approval",
+    dependencies=[
+        Depends(
+            RateLimiter(max_requests=30, window_seconds=60, scope="chat:tool-approval")
+        )
+    ],
+)
+async def handle_tool_approval(
+    session_id: uuid.UUID,
+    approval_in: ToolApprovalRequest,
+    current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    stream_service: ChatStreamService = Depends(get_chat_stream_service),
+):
+    """
+    Submits human approval or rejection for a pending agent tool call.
+    Streams tool execution result and LLM followup response chunks.
+    """
+    chat_service = ChatService(db)
+    session = await chat_service.get_session(session_id, current_user.id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat session not found.",
+        )
+
+    generator = stream_service.stream_tool_approval(
+        session_id=session_id,
+        user_id=current_user.id,
+        tool_call_id=approval_in.tool_call_id,
+        approved=approval_in.approved,
+        message_id=approval_in.message_id,
     )
     return EventSourceResponse(generator)

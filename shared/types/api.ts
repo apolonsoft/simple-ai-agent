@@ -40,6 +40,22 @@ export interface ChatSessionResponse {
   updated_at: string;
 }
 
+export interface ToolCall {
+  id: string;
+  tool: string;
+  arguments: Record<string, any>;
+  status?: 'pending' | 'approved' | 'rejected' | 'executed';
+  result?: any;
+}
+
+export interface ToolApprovalRequest {
+  tool_call_id: string;
+  approved: boolean;
+  message_id?: string;
+  tool_name?: string;
+  arguments?: Record<string, any>;
+}
+
 export interface ChatMessageCreateRequest {
   content: string;
 }
@@ -51,13 +67,14 @@ export interface ChatMessageResponse {
   content: string;
   tokens?: number | null;
   created_at: string;
+  tool_calls?: ToolCall[] | null;
 }
 
 export interface ChatSessionDetailResponse extends ChatSessionResponse {
   messages: ChatMessageResponse[];
 }
 
-export type SseStreamEventType = 'chunk' | 'done' | 'error';
+export type SseStreamEventType = 'chunk' | 'done' | 'error' | 'tool_call' | 'tool_result';
 
 export interface SseChunkEvent {
   content: string;
@@ -65,9 +82,23 @@ export interface SseChunkEvent {
 
 export interface SseDoneEvent {
   message_id?: string | null;
-  status: 'completed';
+  status: 'completed' | 'awaiting_approval';
+  tool_calls?: ToolCall[];
 }
 
 export interface SseErrorEvent {
   error: string;
+}
+
+export interface SseToolCallEvent {
+  id: string;
+  tool: string;
+  arguments: Record<string, any>;
+  status?: string;
+}
+
+export interface SseToolResultEvent {
+  tool_call_id: string;
+  status: 'executed' | 'rejected';
+  result?: any;
 }

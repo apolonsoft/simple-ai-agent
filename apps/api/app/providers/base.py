@@ -25,10 +25,10 @@ class BaseLLMProvider(ABC):
         temperature: float = 0.7,
         max_tokens: int | None = None,
         **kwargs,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[str | dict, None]:
         """
-        Asynchronously streams completion tokens chunk-by-chunk.
-        Yields raw text deltas suitable for SSE transmission.
+        Asynchronously streams completion tokens or tool call events chunk-by-chunk.
+        Yields raw text deltas or tool call dictionaries.
         """
         if False:
             yield ""
@@ -50,7 +50,8 @@ class BaseLLMProvider(ABC):
             max_tokens=max_tokens,
             **kwargs,
         ):
-            chunks.append(chunk)
+            if isinstance(chunk, str):
+                chunks.append(chunk)
         return "".join(chunks)
 
     @abstractmethod

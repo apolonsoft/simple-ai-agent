@@ -50,6 +50,7 @@ class ChatMessageModel(Base, TimestampMixin):
     )  # "user" | "assistant" | "system"
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tool_calls: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationship
     session: Mapped["ChatSessionModel"] = relationship(

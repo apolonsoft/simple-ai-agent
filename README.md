@@ -31,25 +31,27 @@ flowchart TD
 ### ⚡ Backend Architecture (FastAPI & AsyncPG)
 - **Database Connection Decoupling During Long Streams**: LLM inference takes 5–30 seconds. The streaming coordinator uses a 2-phase decoupled transaction pattern, releasing database connections back to the `asyncpg` pool during token generation. This guarantees zero connection starvation under heavy concurrency.
 - **Pluggable LLM Strategy Layer**: Switch seamlessly between cloud providers (**Google Gemini API**) and self-hosted on-premise engines (**Ollama**) using a unified `BaseLLMProvider` interface.
+- **Human-in-the-Loop Tool Calling Layer**: Built-in tool calling support (including arithmetic `calculator` tool). LLM tool call requests are safely held until explicitly approved or rejected by the user in the frontend, preventing unauthorized tool execution.
 - **Distributed Redis Rate Limiter**: ZSET-based sliding-window rate limiting per authenticated user or IP address with automatic `Retry-After` calculation and fail-open resilience.
 - **Redis Turn Context Caching**: Active conversation turns are cached in Redis with a 1-hour sliding TTL, completely eliminating PostgreSQL `SELECT` query contention during multi-turn exchanges.
 - **Context Memory Manager**: Sliding-window context pruner (`MemoryManager`) that automatically truncates older turns, preventing token context blowouts and runaway inference costs.
 - **Enterprise Security**: Argon2id non-blocking password hashing and OAuth2 JWT authentication with strict row-level multi-tenant data isolation.
 
 ### 💻 Frontend Architecture (Angular 22)
-- **Modern Angular Signals**: Fine-grained reactive state for sessions, active thread, loading states, and live streaming tokens without RxJS boilerplate.
+- **Modern Angular Signals**: Fine-grained reactive state for sessions, active thread, loading states, tool execution states, and live streaming tokens without RxJS boilerplate.
 - **Real-Time SSE Streaming Consumer**: Built using native `ReadableStreamDefaultReader` with boundary chunk buffering, token-by-token live UI updates, and an `AbortController` stop trigger.
+- **Interactive Tool Approval Cards**: Real-time rendering of pending tool calls with argument inspection, live status badges (`Approval Required`, `Approved`, `Executed`, `Rejected`), and one-click user action buttons (**Approve & Run** / **Reject**).
 - **Self-Contained Markdown & Code Viewer**: Safe Markdown rendering pipeline with XSS HTML sanitization, language header tags, preformatted code fences, and auto-scrolling message viewports.
 - **Session Thread Sidebar**: "+ New Chat" action, thread list with active indicators, instant hover deletion, and route parameter input binding (`/chat/:sessionId`).
 - **Guards & Interceptors**: Functional `authGuard` and `guestGuard` for seamless route protection, plus a functional HTTP interceptor injecting Bearer JWT tokens.
 
-### 🧪 Comprehensive Quality & Testing (96/96 Tests Passed)
+### 🧪 Comprehensive Quality & Testing (107/107 Tests Passed)
 - **Code Quality & Type Safety**:
   - **[Astral Ruff](https://docs.astral.sh/ruff)**: Lightning-fast Python linting, isort import sorting, and code formatting.
   - **[Astral ty](https://docs.astral.sh/ty)**: Ultra-fast Rust-based Python type checker and language server.
 - **100% Automated Test Suite**:
-  - **45 Backend Pytest tests**: Async persistence, Argon2id auth, Redis rate limiting, Gemini & Ollama adapters, context sliding window, SSE streaming generator, Redis cache hits/invalidation, and concurrent pool safety.
-  - **51 Frontend Vitest tests across 12 suites**: Signal stores, streaming readers, Markdown parsing, component views, auth forms, interceptors, and route guards.
+  - **50 Backend Pytest tests**: Async persistence, Argon2id auth, Redis rate limiting, Gemini & Ollama adapters, tool execution, approval/rejection lifecycle, context sliding window, SSE streaming generator, Redis cache hits/invalidation, and concurrent pool safety.
+  - **57 Frontend Vitest tests across 12 suites**: Signal stores, streaming readers, tool call SSE events, approval/rejection workflows, Markdown parsing, component views, auth forms, interceptors, and route guards.
 - **Load Testing & Concurrency Benchmark**: Automated load test tool measuring RPS, token throughput, and p50, p90, p95, and p99 latency percentiles under concurrent user load.
 
 ---
@@ -75,7 +77,8 @@ simple-ai-agent/
 │   │   │   ├── models/             # SQLAlchemy 2.0 ORM models (User, ChatSession, ChatMessage)
 │   │   │   ├── providers/          # Gemini & Ollama streaming adapters
 │   │   │   ├── services/           # ChatService, ChatStreamService, ChatCacheService, MemoryManager
-│   │   │   └── tests/              # 45 Pytest unit and integration suites
+│   │   │   ├── tools/              # Calculator tool & execution registry
+│   │   │   └── tests/              # 50 Pytest unit and integration suites
 │   │   └── pyproject.toml          # Python dependencies & tools
 │   └── web/                        # Angular 22 Frontend Application
 │       ├── src/
