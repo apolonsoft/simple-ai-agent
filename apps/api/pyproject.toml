@@ -19,6 +19,7 @@ dependencies = [
     "httpx>=0.27.2",
     "sse-starlette>=2.1.3",
     "python-multipart>=0.0.20",
+    "tavily-python>=0.8.5",
 ]
 
 [dependency-groups]

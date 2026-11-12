@@ -31,7 +31,7 @@ flowchart TD
 ### ⚡ Backend Architecture (FastAPI & AsyncPG)
 - **Database Connection Decoupling During Long Streams**: LLM inference takes 5–30 seconds. The streaming coordinator uses a 2-phase decoupled transaction pattern, releasing database connections back to the `asyncpg` pool during token generation. This guarantees zero connection starvation under heavy concurrency.
 - **Pluggable LLM Strategy Layer**: Switch seamlessly between cloud providers (**Google Gemini API**) and self-hosted on-premise engines (**Ollama**) using a unified `BaseLLMProvider` interface.
-- **Human-in-the-Loop Tool Calling Layer**: Built-in tool calling support (including arithmetic `calculator` tool). LLM tool call requests are safely held until explicitly approved or rejected by the user in the frontend, preventing unauthorized tool execution.
+- **Human-in-the-Loop Tool Calling & Dynamic Introspection Layer**: Built-in tool calling framework supporting dynamic schema generation from native Python functions (`function_to_tool_definition`), callable dispatch (`tool_execution`), autonomous agent loops, arithmetic `calculator` tools, and web search (`search_web` via Tavily). In the web platform, LLM tool call requests are safely held until explicitly approved or rejected by the user in the frontend, preventing unauthorized tool execution.
 - **Distributed Redis Rate Limiter**: ZSET-based sliding-window rate limiting per authenticated user or IP address with automatic `Retry-After` calculation and fail-open resilience.
 - **Redis Turn Context Caching**: Active conversation turns are cached in Redis with a 1-hour sliding TTL, completely eliminating PostgreSQL `SELECT` query contention during multi-turn exchanges.
 - **Context Memory Manager**: Sliding-window context pruner (`MemoryManager`) that automatically truncates older turns, preventing token context blowouts and runaway inference costs.
@@ -45,12 +45,12 @@ flowchart TD
 - **Session Thread Sidebar**: "+ New Chat" action, thread list with active indicators, instant hover deletion, and route parameter input binding (`/chat/:sessionId`).
 - **Guards & Interceptors**: Functional `authGuard` and `guestGuard` for seamless route protection, plus a functional HTTP interceptor injecting Bearer JWT tokens.
 
-### 🧪 Comprehensive Quality & Testing (107/107 Tests Passed)
+### 🧪 Comprehensive Quality & Testing (111/111 Tests Passed)
 - **Code Quality & Type Safety**:
   - **[Astral Ruff](https://docs.astral.sh/ruff)**: Lightning-fast Python linting, isort import sorting, and code formatting.
   - **[Astral ty](https://docs.astral.sh/ty)**: Ultra-fast Rust-based Python type checker and language server.
 - **100% Automated Test Suite**:
-  - **50 Backend Pytest tests**: Async persistence, Argon2id auth, Redis rate limiting, Gemini & Ollama adapters, tool execution, approval/rejection lifecycle, context sliding window, SSE streaming generator, Redis cache hits/invalidation, and concurrent pool safety.
+  - **54 Backend Pytest tests**: Async persistence, Argon2id auth, Redis rate limiting, Gemini & Ollama adapters, tool execution, dynamic function introspection (`function_to_tool_definition`), Tavily web search (`search_web`), autonomous multi-turn tool loops, approval/rejection lifecycle, context sliding window, SSE streaming generator, Redis cache hits/invalidation, and concurrent pool safety.
   - **57 Frontend Vitest tests across 12 suites**: Signal stores, streaming readers, tool call SSE events, approval/rejection workflows, Markdown parsing, component views, auth forms, interceptors, and route guards.
 - **Load Testing & Concurrency Benchmark**: Automated load test tool measuring RPS, token throughput, and p50, p90, p95, and p99 latency percentiles under concurrent user load.
 
@@ -77,8 +77,8 @@ simple-ai-agent/
 │   │   │   ├── models/             # SQLAlchemy 2.0 ORM models (User, ChatSession, ChatMessage)
 │   │   │   ├── providers/          # Gemini & Ollama streaming adapters
 │   │   │   ├── services/           # ChatService, ChatStreamService, ChatCacheService, MemoryManager
-│   │   │   ├── tools/              # Calculator tool & execution registry
-│   │   │   └── tests/              # 50 Pytest unit and integration suites
+│   │   │   ├── tools/              # Dynamic tool introspection, calculator, search & execution registry
+│   │   │   └── tests/              # 54 Pytest unit and integration suites
 │   │   └── pyproject.toml          # Python dependencies & tools
 │   └── web/                        # Angular 22 Frontend Application
 │       ├── src/

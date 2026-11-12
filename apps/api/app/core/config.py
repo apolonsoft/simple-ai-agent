@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = "llama3.2"
     CHAT_MEMORY_WINDOW_SIZE: int = 10
 
+    # Search & Tool Integrations
+    TAVILY_API_KEY: str = ""
+
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:4200"]
 

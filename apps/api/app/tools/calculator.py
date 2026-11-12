@@ -1,42 +1,25 @@
 # app/tools/calculator.py
-from typing import Any
+from collections.abc import Callable
+from typing import Any, Literal
 
-calculator_tool_definition: dict[str, Any] = {
-    "type": "function",
-    "function": {
-        "name": "calculator",
-        "description": "Perform basic arithmetic operations.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "operator": {
-                    "type": "string",
-                    "description": "Arithmetic operation to perform",
-                    "enum": ["add", "subtract", "multiply", "divide"],
-                },
-                "first_number": {
-                    "type": "number",
-                    "description": "First number for the calculation",
-                },
-                "second_number": {
-                    "type": "number",
-                    "description": "Second number for the calculation",
-                },
-            },
-            "required": ["operator", "first_number", "second_number"],
-        },
-    },
-}
+from app.tools.base import function_to_tool_definition, tool_execution
+from app.tools.search import search_web
 
 
-def calculator(operator: str, first_number: float, second_number: float):
-    if operator == "add":
+def calculator(
+    operator: Literal["add", "subtract", "multiply", "divide"],
+    first_number: float,
+    second_number: float,
+) -> float:
+    """Perform basic arithmetic operations."""
+    op = operator.strip().lower()
+    if op == "add":
         return first_number + second_number
-    elif operator == "subtract":
+    elif op == "subtract":
         return first_number - second_number
-    elif operator == "multiply":
+    elif op == "multiply":
         return first_number * second_number
-    elif operator == "divide":
+    elif op == "divide":
         if second_number == 0:
             raise ValueError("Cannot divide by zero")
         return first_number / second_number
@@ -44,33 +27,27 @@ def calculator(operator: str, first_number: float, second_number: float):
         raise ValueError(f"Unsupported operator: {operator}")
 
 
-AVAILABLE_TOOLS = {
+AVAILABLE_TOOLS: dict[str, Callable[..., Any]] = {
     "calculator": calculator,
+    "search_web": search_web,
 }
 
-TOOL_DEFINITIONS = [
-    calculator_tool_definition,
+# Dynamically generated schemas from registered Python functions
+TOOL_DEFINITIONS: list[dict[str, Any]] = [
+    function_to_tool_definition(tool) for tool in AVAILABLE_TOOLS.values()
 ]
+
+# Direct dynamic definitions for explicit backward-compatible imports
+calculator_tool_definition: dict[str, Any] = function_to_tool_definition(calculator)
+search_web_tool_definition: dict[str, Any] = function_to_tool_definition(search_web)
 
 
 def execute_tool(name: str, arguments: dict[str, Any]) -> Any:
-    """Executes a registered tool by name with the given arguments."""
-    if name not in AVAILABLE_TOOLS:
-        raise ValueError(f"Tool '{name}' is not registered.")
-
-    if name == "calculator":
-        operator = str(arguments.get("operator", "")).strip().lower()
-        first_number = float(arguments["first_number"])
-        second_number = float(arguments["second_number"])
-        result = calculator(
-            operator=operator,
-            first_number=first_number,
-            second_number=second_number,
-        )
-        # Format as int if it's an exact integer, otherwise keep float
-        if isinstance(result, float) and result.is_integer():
-            return int(result)
-        return result
-
-    tool_fn = AVAILABLE_TOOLS[name]
-    return tool_fn(**arguments)
+    """Executes a registered tool by name with the given arguments using tool_execution."""
+    tool_call = {
+        "function": {
+            "name": name,
+            "arguments": arguments,
+        }
+    }
+    return tool_execution(AVAILABLE_TOOLS, tool_call)

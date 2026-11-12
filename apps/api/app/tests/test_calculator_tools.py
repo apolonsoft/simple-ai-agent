@@ -1,4 +1,5 @@
 # app/tests/test_calculator_tools.py
+from typing import Any, cast
 from unittest.mock import patch
 
 import httpx
@@ -6,11 +7,22 @@ import pytest
 from fastapi import status
 
 from app.providers.base import BaseLLMProvider
+from app.tools.base import (
+    AgentCompletionResponse,
+    AgentMessageResponse,
+    ToolCallResponse,
+    function_to_input_schema,
+    function_to_tool_definition,
+    simple_agent_loop,
+    tool_execution,
+)
 from app.tools.calculator import (
     calculator,
     calculator_tool_definition,
     execute_tool,
+    search_web_tool_definition,
 )
+from app.tools.search import search_web
 
 
 def test_calculator_operations():
@@ -36,7 +48,7 @@ def test_calculator_operations():
 
     # unsupported operator
     with pytest.raises(ValueError, match="Unsupported operator: power"):
-        calculator("power", 2.0, 3.0)
+        calculator(cast(Any, "power"), 2.0, 3.0)
 
 
 def test_execute_tool_calculator():
@@ -67,9 +79,139 @@ def test_calculator_tool_definition_structure():
     properties = params["properties"]
     assert isinstance(properties, dict)
     assert "operator" in properties
+    assert properties["operator"]["enum"] == ["add", "subtract", "multiply", "divide"]
     assert "first_number" in properties
     assert "second_number" in properties
     assert params["required"] == ["operator", "first_number", "second_number"]
+
+
+def test_search_web_tool_definition_and_execution():
+    assert search_web_tool_definition["type"] == "function"
+    fn = search_web_tool_definition["function"]
+    assert fn["name"] == "search_web"
+    assert fn["description"] == "Search the web for the given query."
+    params = fn["parameters"]
+    assert params["required"] == ["query"]
+    assert params["properties"]["query"]["type"] == "string"
+    assert params["properties"]["max_results"]["type"] == "integer"
+    assert params["properties"]["max_results"]["default"] == 5
+
+    with patch("app.tools.search.tavily_client.search") as mock_search:
+        mock_search.return_value = {
+            "results": [{"title": "FastAPI", "url": "https://fastapi.tiangolo.com"}]
+        }
+        res = search_web("FastAPI Python", max_results=3)
+        assert res == [{"title": "FastAPI", "url": "https://fastapi.tiangolo.com"}]
+        mock_search.assert_called_once_with(
+            "FastAPI Python", max_results=3, topic="general", time_range=None
+        )
+
+    # Test error handling when search fails
+    with patch(
+        "app.tools.search.tavily_client.search",
+        side_effect=Exception("API connection timeout"),
+    ):
+        error_res = search_web("Test query")
+        assert "Error: Search failed - API connection timeout" in error_res
+
+    # Test execution via execute_tool
+    with patch("app.tools.search.tavily_client.search") as mock_search:
+        mock_search.return_value = {"results": ["item1"]}
+        result = execute_tool("search_web", {"query": "deep learning"})
+        assert result == ["item1"]
+
+
+def test_function_to_input_schema_and_tool_definition():
+    def sample_func(
+        city: str, days: int, verbose: bool = False, extra: dict | None = None
+    ):
+        """Search weather forecast for a city."""
+        return f"{city}-{days}-{verbose}"
+
+    schema = function_to_input_schema(sample_func)
+    assert schema["type"] == "object"
+    assert "city" in schema["properties"]
+    assert schema["properties"]["city"]["type"] == "string"
+    assert schema["properties"]["days"]["type"] == "integer"
+    assert schema["properties"]["verbose"]["type"] == "boolean"
+    assert schema["required"] == ["city", "days"]  # verbose has default
+
+    tool_def = function_to_tool_definition(sample_func)
+    assert tool_def["type"] == "function"
+    assert tool_def["function"]["name"] == "sample_func"
+    assert tool_def["function"]["description"] == "Search weather forecast for a city."
+    assert tool_def["function"]["parameters"] == schema
+
+
+def test_tool_execution_with_object_and_dict():
+    tool_box = {"calculator": calculator}
+
+    # 1. Object format (e.g. LiteLLM / OpenAI response)
+    class FakeFunc:
+        name = "calculator"
+        arguments = '{"operator": "add", "first_number": 15, "second_number": 25}'
+
+    class FakeToolCall:
+        function = FakeFunc()
+
+    result1 = tool_execution(tool_box, FakeToolCall())
+    assert result1 == 40
+
+    # 2. Dict format
+    result2 = tool_execution(
+        tool_box,
+        {
+            "name": "calculator",
+            "arguments": {
+                "operator": "multiply",
+                "first_number": 4,
+                "second_number": 5,
+            },
+        },
+    )
+    assert result2 == 20
+
+    with pytest.raises(ValueError, match="is not registered in tool_box"):
+        tool_execution(tool_box, {"name": "non_existent", "arguments": {}})
+
+
+def test_simple_agent_loop_with_completion_fn():
+    call_count = 0
+
+    def mock_completion(api_base, model, messages, tools):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # Model requests tool call
+            return AgentCompletionResponse(
+                AgentMessageResponse(
+                    content="",
+                    tool_calls=[
+                        ToolCallResponse(
+                            id="call_mock_1",
+                            name="calculator",
+                            arguments={
+                                "operator": "multiply",
+                                "first_number": 9,
+                                "second_number": 9,
+                            },
+                        )
+                    ],
+                )
+            )
+        else:
+            # Second turn: Model returns final prose after seeing role="tool"
+            return AgentCompletionResponse(AgentMessageResponse(content="9 * 9 = 81"))
+
+    result = simple_agent_loop(
+        system_prompt="You are a math helper.",
+        question="What is 9 * 9?",
+        tools=[calculator],
+        completion_fn=mock_completion,
+    )
+
+    assert result == "9 * 9 = 81"
+    assert call_count == 2
 
 
 class MockToolCallingProvider(BaseLLMProvider):
