@@ -304,6 +304,45 @@ describe('ChatService', () => {
     });
   });
 
+  it('should parse event: tool_call for search_web and attach only 1 tool_call object', async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(
+          encoder.encode(
+            'event: tool_call\r\ndata: {"id": "call-search-1", "tool": "search_web", "arguments": {"query": "FastAPI latest"}, "status": "pending"}\r\n\r\n'
+          )
+        );
+        controller.enqueue(
+          encoder.encode('event: done\r\ndata: {"status": "awaiting_approval"}\r\n\r\n')
+        );
+        controller.close();
+      },
+    });
+
+    const mockResponse = new Response(stream, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(mockResponse);
+
+    await service.sendMessageStream('session-1', 'Search for FastAPI latest');
+
+    const msgs = service.messages();
+    expect(msgs.length).toBe(2);
+    const assistant = msgs[1];
+    expect(assistant.tool_calls).toBeDefined();
+    expect(assistant.tool_calls?.length).toBe(1);
+    expect(assistant.tool_calls?.[0]).toEqual({
+      id: 'call-search-1',
+      tool: 'search_web',
+      arguments: { query: 'FastAPI latest' },
+      status: 'pending',
+      result: undefined,
+    });
+  });
+
   it('should approve tool call, stream result and follow-up tokens', async () => {
     service.messages.set([
       { role: 'user', content: 'What is 10 * 10?' },

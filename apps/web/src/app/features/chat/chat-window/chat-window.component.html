@@ -74,7 +74,7 @@
                           <div class="tool-call-card" [class]="'status-' + (tc.status || 'pending')">
                             <div class="tool-call-header">
                               <div class="tool-title">
-                                <span class="tool-icon">🧮</span>
+                                <span class="tool-icon">{{ tc.tool === 'search_web' ? '🌐' : '🧮' }}</span>
                                 <span class="tool-name">Tool: <strong>{{ tc.tool }}</strong></span>
                               </div>
                               <span class="tool-badge" [class]="'badge-' + (tc.status || 'pending')">
@@ -105,7 +105,7 @@
                               @if (tc.status === 'rejected') {
                                 <div class="tool-result-section rejected-section">
                                   <span class="tool-section-label">Status:</span>
-                                  <span class="tool-rejected-text">Action rejected by user. Tool was not executed.</span>
+                                  <span class="tool-rejected-text">Action rejected by user. Tool '{{ tc.tool }}' was not executed.</span>
                                 </div>
                               }
                             </div>

@@ -95,3 +95,22 @@ def test_memory_manager_sliding_window_trims_oldest():
     assert context[3].content == "Turn 3 User"
     assert context[4].content == "Turn 3 Bot"
     assert context[5].content == "Turn 4 User"
+
+
+def test_memory_manager_context_with_tools_includes_all_tools_and_rules():
+    manager = MemoryManager(window_size=5)
+    context = manager.build_context(
+        history=[],
+        new_user_message="Find the latest news on AI",
+        include_tools=True,
+    )
+
+    assert len(context) == 2
+    system_content = context[0].content
+    assert "calculator" in system_content
+    assert "search_web" in system_content
+    assert "Tool Usage Rules" in system_content
+    assert (
+        "Never call 'calculator' for informational or search questions"
+        in system_content
+    )

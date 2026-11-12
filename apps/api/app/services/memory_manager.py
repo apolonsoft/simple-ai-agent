@@ -12,9 +12,17 @@ DEFAULT_SYSTEM_PROMPT = (
 )
 
 TOOL_SYSTEM_INSTRUCTION = (
-    "\nYou have access to the 'calculator' tool for arithmetic operations "
-    "(add, subtract, multiply, divide). When a calculation is requested, "
-    "use the calculator tool."
+    "\n\nYou have access to the following tools:\n"
+    "- 'calculator': Perform basic arithmetic operations (add, subtract, multiply, divide). "
+    "Use this tool ONLY when explicit mathematical calculations are required.\n"
+    "- 'search_web': Search the web for current information, news, and external facts. "
+    "Use this tool ONLY when web search is required.\n\n"
+    "Tool Usage Rules:\n"
+    "- Only call a tool when it is directly relevant and required to answer the user request.\n"
+    "- Never call 'calculator' for informational or search questions.\n"
+    "- Never call 'search_web' for pure arithmetic calculations.\n"
+    "- Call only ONE tool at a time. Do not call multiple tools unless explicitly requested.\n"
+    "- If no tool is needed, respond directly with text without invoking any tools."
 )
 
 

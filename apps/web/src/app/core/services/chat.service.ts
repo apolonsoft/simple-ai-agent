@@ -319,9 +319,11 @@ export class ChatService {
       if (eventType === 'error' || parsed.error) {
         this.handleStreamError(parsed.error || 'Generation error');
       } else if (eventType === 'tool_call') {
+        const toolName = parsed.tool || parsed.name;
+        if (!toolName) return;
         const tc: ToolCall = {
           id: parsed.id,
-          tool: parsed.tool || parsed.name || 'calculator',
+          tool: toolName,
           arguments: parsed.arguments || {},
           status: (parsed.status as any) || 'pending',
           result: parsed.result,

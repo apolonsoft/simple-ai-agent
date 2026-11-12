@@ -132,10 +132,13 @@ class ChatStreamService:
             ):
                 if isinstance(token, dict):
                     # Provider emitted a tool call chunk
+                    tool_name = token.get("name") or token.get("tool")
+                    if not tool_name:
+                        continue
                     call_id = token.get("id") or f"call_{uuid.uuid4().hex[:12]}"
                     tc_obj = {
                         "id": call_id,
-                        "tool": token.get("name") or token.get("tool") or "calculator",
+                        "tool": tool_name,
                         "arguments": token.get("arguments", {}),
                         "status": "pending",
                     }
@@ -269,6 +272,9 @@ class ChatStreamService:
                 }
                 return
 
+            # Identify tool name
+            tool_name = tc.get("tool") or "unknown_tool"
+
             if not approved:
                 # User rejected tool execution
                 await chat_service.update_message_tool_call(
@@ -293,7 +299,7 @@ class ChatStreamService:
                     "event": "chunk",
                     "data": json.dumps(
                         {
-                            "content": "\n\n*Tool execution was rejected by user. The calculation was not performed.*"
+                            "content": f"\n\n*Tool execution was rejected by user. The '{tool_name}' tool was not executed.*"
                         }
                     ),
                 }
@@ -309,7 +315,6 @@ class ChatStreamService:
                 return
 
             # User approved tool execution -> execute tool!
-            tool_name = tc.get("tool", "calculator")
             tool_args = tc.get("arguments", {})
             try:
                 tool_result = execute_tool(tool_name, tool_args)
@@ -364,7 +369,7 @@ class ChatStreamService:
             logger.error(
                 f"Error during LLM stream after tool approval: {exc}", exc_info=True
             )
-            fallback_text = f"\n\nCalculation result: {final_val}"
+            fallback_text = f"\n\nTool '{tool_name}' result: {final_val}"
             followup_chunks.append(fallback_text)
             yield {
                 "event": "chunk",

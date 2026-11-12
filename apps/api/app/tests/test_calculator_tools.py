@@ -380,3 +380,80 @@ async def test_tool_calling_flow_with_user_rejection(client: httpx.AsyncClient):
     )
     updated_assistant_msg = msgs_res2.json()[1]
     assert updated_assistant_msg["tool_calls"][0]["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_search_web_tool_calling_flow_with_user_approval(
+    client: httpx.AsyncClient,
+):
+    token = await get_auth_token(client, "search_approval@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    sess_res = await client.post(
+        "/api/v1/chats", json={"title": "Web Search Session"}, headers=headers
+    )
+    session_id = sess_res.json()["id"]
+
+    mock_search_call = {
+        "type": "tool_call",
+        "name": "search_web",
+        "arguments": {"query": "FastAPI latest release notes"},
+    }
+    mock_provider = MockToolCallingProvider(
+        tool_call_dict=mock_search_call,
+        text_after_tool="Based on web search, FastAPI latest release includes multiple improvements.",
+    )
+
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        stream_res = await client.post(
+            f"/api/v1/chats/{session_id}/stream",
+            json={"content": "Can you search the web for the latest FastAPI release?"},
+            headers=headers,
+        )
+        assert stream_res.status_code == status.HTTP_200_OK
+        text_body = stream_res.text
+        assert "event: tool_call" in text_body
+        assert "search_web" in text_body
+        assert "calculator" not in text_body
+        assert "awaiting_approval" in text_body
+
+    # Verify only 1 tool call was generated and stored in pending state
+    msgs_res = await client.get(f"/api/v1/chats/{session_id}/messages", headers=headers)
+    assert msgs_res.status_code == status.HTTP_200_OK
+    messages = msgs_res.json()
+    assert len(messages) == 2
+    assistant_msg = messages[1]
+    assert assistant_msg["tool_calls"] is not None
+    assert len(assistant_msg["tool_calls"]) == 1
+    tool_call = assistant_msg["tool_calls"][0]
+    assert tool_call["tool"] == "search_web"
+    assert tool_call["status"] == "pending"
+
+    # User approves search_web execution
+    fake_search_res = {
+        "results": [{"title": "FastAPI Release", "url": "https://fastapi.tiangolo.com"}]
+    }
+    with (
+        patch(
+            "app.services.chat_stream_service.get_llm_provider",
+            return_value=mock_provider,
+        ),
+        patch("app.tools.search.tavily_client.search", return_value=fake_search_res),
+    ):
+        approval_res = await client.post(
+            f"/api/v1/chats/{session_id}/tool-calls/approval",
+            json={
+                "tool_call_id": tool_call["id"],
+                "approved": True,
+                "message_id": assistant_msg["id"],
+            },
+            headers=headers,
+        )
+        assert approval_res.status_code == status.HTTP_200_OK
+        approval_text = approval_res.text
+        assert "event: tool_result" in approval_text
+        assert "executed" in approval_text
+        assert "FastAPI Release" in approval_text
+        assert "FastAPI latest release includes multiple improvements" in approval_text
