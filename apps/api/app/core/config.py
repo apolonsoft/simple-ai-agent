@@ -46,6 +46,7 @@ class Settings(BaseSettings):
 
     # Search & Tool Integrations
     TAVILY_API_KEY: str = ""
+    MCP_TAVILY_URL: str = "http://127.0.0.1:8001/sse"
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:4200"]

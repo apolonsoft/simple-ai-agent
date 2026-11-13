@@ -11,6 +11,7 @@ from app.models.chat import ChatMessageModel
 from app.providers.factory import get_llm_provider
 from app.services.chat_cache_service import ChatCacheService
 from app.services.chat_service import ChatService
+from app.services.mcp_client_service import mcp_client
 from app.services.memory_manager import MemoryManager
 from app.tools.calculator import TOOL_DEFINITIONS, execute_tool
 
@@ -126,9 +127,17 @@ class ChatStreamService:
         full_response_chunks: list[str] = []
         detected_tool_calls: list[dict[str, Any]] = []
 
+        # Discover dynamic tools from MCP server
+        mcp_tools = await mcp_client.get_tool_definitions()
+        local_tool_names = {t.get("function", {}).get("name") for t in TOOL_DEFINITIONS}
+        active_tools = list(TOOL_DEFINITIONS)
+        for mt in mcp_tools:
+            if mt.get("function", {}).get("name") not in local_tool_names:
+                active_tools.append(mt)
+
         try:
             async for token in provider.generate_stream(
-                llm_messages, tools=TOOL_DEFINITIONS
+                llm_messages, tools=active_tools
             ):
                 if isinstance(token, dict):
                     # Provider emitted a tool call chunk
@@ -317,7 +326,13 @@ class ChatStreamService:
             # User approved tool execution -> execute tool!
             tool_args = tc.get("arguments", {})
             try:
-                tool_result = execute_tool(tool_name, tool_args)
+                # Check if tool is provided by MCP server
+                mcp_tools = await mcp_client.get_tool_definitions()
+                mcp_names = {t.get("function", {}).get("name") for t in mcp_tools}
+                if tool_name in mcp_names:
+                    tool_result = await mcp_client.call_tool(tool_name, tool_args)
+                else:
+                    tool_result = execute_tool(tool_name, tool_args)
                 tool_error = None
             except Exception as exc:
                 tool_result = None
