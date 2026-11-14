@@ -1,6 +1,6 @@
 ### Task 03: API Route & Comprehensive Pytest Test Suite
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Expose `POST /api/v1/auth/change-password` in `apps/api/app/routes/auth_routes.py` with rate limiting and `get_current_user` dependency, and create a comprehensive pytest suite in `apps/api/app/tests/test_change_password_api.py`.

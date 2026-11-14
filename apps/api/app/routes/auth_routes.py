@@ -9,6 +9,7 @@ from app.core.rate_limiter import RateLimiter
 from app.db.session import get_db
 from app.models.user import UserModel
 from app.schemas.user import (
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     MessageResponse,
     ResetPasswordRequest,
@@ -110,3 +111,22 @@ async def reset_password(
     return await controller.reset_password(
         token=reset_data.token, new_password=reset_data.new_password
     )
+
+
+@router.post(
+    "/change-password",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    dependencies=[
+        Depends(
+            RateLimiter(max_requests=5, window_seconds=60, scope="auth:change-password")
+        )
+    ],
+)
+async def change_password(
+    request_data: ChangePasswordRequest,
+    current_user: UserModel = Depends(get_current_user),
+    controller: AuthController = Depends(get_auth_controller),
+) -> MessageResponse:
+    """Protected endpoint: Updates password for authenticated user and revokes concurrent sessions."""
+    return await controller.change_password(user=current_user, request_data=request_data)

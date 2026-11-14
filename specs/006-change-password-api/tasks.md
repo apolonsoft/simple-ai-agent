@@ -4,4 +4,4 @@ Master roadmap listing status of all tasks for Feature `006-change-password-api`
 
 - [x] [Task 01: Core Security JWT Issued-At & Redis Session Invalidation Dependency](tasks/task-01.md)
 - [x] [Task 02: Schemas, AuthService & AuthController Change Password Logic](tasks/task-02.md)
-- [ ] [Task 03: API Route & Comprehensive Pytest Test Suite](tasks/task-03.md)
+- [x] [Task 03: API Route & Comprehensive Pytest Test Suite](tasks/task-03.md)
