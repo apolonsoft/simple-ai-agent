@@ -40,11 +40,29 @@ def check_port(host: str, port: int, service_name: str) -> bool:
         print(f"  ⚠️  {service_name} is not responding on {host}:{port} (run `docker compose up -d` to start)")
         return False
 
+def is_profile_enabled(profile_name: str) -> bool:
+    """Check if a profile is active via COMPOSE_PROFILES env var or .env file."""
+    profiles = os.environ.get("COMPOSE_PROFILES", "")
+    if not profiles:
+        env_file = ROOT_DIR / ".env"
+        if env_file.exists():
+            with open(env_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("COMPOSE_PROFILES="):
+                        profiles = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        break
+    enabled_profiles = [p.strip().lower() for p in profiles.split(",") if p.strip()]
+    return profile_name.lower() in enabled_profiles
+
 def check_services() -> None:
     print("\n🔍 [2/3] Checking Container Services Connectivity...")
     check_port("localhost", 5432, "PostgreSQL")
     check_port("localhost", 6379, "Redis")
-    check_port("localhost", 11434, "Ollama")
+    if is_profile_enabled("ollama"):
+        check_port("localhost", 11434, "Ollama")
+    else:
+        print("  ℹ️  Ollama service is inactive (COMPOSE_PROFILES does not include 'ollama')")
 
 def check_compose_file() -> bool:
     print("\n🔍 [3/3] Validating docker-compose.yml configuration...")

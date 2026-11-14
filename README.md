@@ -141,15 +141,22 @@ make benchmark
 
 ### 1. Infrastructure Setup (Docker)
 
-Start PostgreSQL, Redis, and Ollama in the background:
+Start core infrastructure (PostgreSQL, Redis, and Mailpit) in the background:
 
 ```bash
 docker compose up -d
+# or: make up
 ```
 
-Verify all services are listening:
+> **Note on Local Ollama**: Ollama is configured under the `ollama` Compose profile so it stays dormant by default. If you wish to run the local Ollama container, uncomment or set `COMPOSE_PROFILES=ollama` in your `.env` file, or start it explicitly:
+> ```bash
+> COMPOSE_PROFILES=ollama docker compose up -d
+> ```
+
+Verify services are listening:
 ```bash
 python3 scripts/verify_infra.py
+# or: make verify
 ```
 
 ---

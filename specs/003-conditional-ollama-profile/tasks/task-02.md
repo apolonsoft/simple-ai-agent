@@ -1,6 +1,6 @@
 ### Task 02: Update Infrastructure Verification Script and Documentation
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Update `scripts/verify_infra.py` to inspect `COMPOSE_PROFILES` from environment or `.env` and conditionally verify Ollama port `11434` only when active. Update `README.md` to explain how to enable local Ollama.
