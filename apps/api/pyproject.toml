@@ -21,6 +21,7 @@ dependencies = [
     "python-multipart>=0.0.20",
     "tavily-python>=0.8.5",
     "mcp>=2.3.0",
+    "boto3>=1.35.0",
 ]
 
 [dependency-groups]

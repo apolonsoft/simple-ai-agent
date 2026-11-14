@@ -61,6 +61,14 @@ class Settings(BaseSettings):
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
     FRONTEND_RESET_URL: str = "http://localhost:4200/reset-password"
 
+    # S3 Object Storage (SeaweedFS / S3 Compatible)
+    S3_ENDPOINT_URL: str = "http://localhost:8333"
+    S3_ACCESS_KEY: str = "any"
+    S3_SECRET_KEY: str = "any"
+    S3_BUCKET_NAME: str = "avatars"
+    S3_PUBLIC_URL_PREFIX: str = "http://localhost:8333/avatars"
+    MAX_AVATAR_SIZE_BYTES: int = 5 * 1024 * 1024  # 5MB
+
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env", "../../.env"), extra="ignore"
     )
