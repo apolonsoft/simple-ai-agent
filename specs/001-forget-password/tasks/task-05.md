@@ -1,6 +1,6 @@
 ### Task 05: AuthController, API Routes & Comprehensive Tests
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Expose the 3 password reset endpoints in `AuthController` and `auth_routes.py` with sliding window rate limiting on forgot-password, wire up `EmailService`, and write comprehensive automated tests in `test_password_reset.py`.

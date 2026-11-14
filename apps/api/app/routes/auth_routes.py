@@ -1,5 +1,5 @@
 # app/routes/auth_routes.py
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +8,15 @@ from app.core.dependencies import get_current_user, require_role
 from app.core.rate_limiter import RateLimiter
 from app.db.session import get_db
 from app.models.user import UserModel
-from app.schemas.user import Token, UserCreate, UserResponse
+from app.schemas.user import (
+    ForgotPasswordRequest,
+    MessageResponse,
+    ResetPasswordRequest,
+    Token,
+    UserCreate,
+    UserResponse,
+    VerifyResetTokenResponse,
+)
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -56,3 +64,49 @@ async def get_me(current_user: UserModel = Depends(get_current_user)):
 async def admin_dashboard(admin_user: UserModel = Depends(require_role("admin"))):
     """Protected endpoint: Only users with role 'admin' can access."""
     return {"message": f"Welcome Admin {admin_user.email}"}
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    dependencies=[
+        Depends(
+            RateLimiter(max_requests=5, window_seconds=900, scope="auth:forgot-password")
+        )
+    ],
+)
+async def forgot_password(
+    request_data: ForgotPasswordRequest,
+    controller: AuthController = Depends(get_auth_controller),
+):
+    """Initiates password reset flow and dispatches email via SMTP/Mailpit."""
+    return await controller.forgot_password(email=request_data.email)
+
+
+@router.get(
+    "/verify-reset-token",
+    response_model=VerifyResetTokenResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def verify_reset_token(
+    token: str = Query(..., description="Password reset token from email link"),
+    controller: AuthController = Depends(get_auth_controller),
+):
+    """Verifies validity and unexpired state of a reset token before form submission."""
+    return await controller.verify_reset_token(token=token)
+
+
+@router.post(
+    "/reset-password",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def reset_password(
+    reset_data: ResetPasswordRequest,
+    controller: AuthController = Depends(get_auth_controller),
+):
+    """Consumes the reset token and updates the user's password."""
+    return await controller.reset_password(
+        token=reset_data.token, new_password=reset_data.new_password
+    )
