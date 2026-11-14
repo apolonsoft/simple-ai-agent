@@ -1,5 +1,6 @@
-import { Pipe, PipeTransform, inject, SecurityContext } from '@angular/core';
+import { Pipe, PipeTransform, inject } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import hljs from 'highlight.js';
 
 @Pipe({
   name: 'markdown',
@@ -24,16 +25,73 @@ export class MarkdownPipe implements PipeTransform {
       .replace(/'/g, '&#039;');
   }
 
+  private normalizeLanguage(lang: string): string {
+    const clean = lang.trim().toLowerCase();
+    switch (clean) {
+      case 'c#':
+      case 'cs':
+      case 'csharp':
+        return 'csharp';
+      case 'python':
+      case 'py':
+        return 'python';
+      case 'typescript':
+      case 'ts':
+        return 'typescript';
+      case 'javascript':
+      case 'js':
+        return 'javascript';
+      case 'java':
+        return 'java';
+      case 'php':
+        return 'php';
+      case 'ruby':
+      case 'rb':
+        return 'ruby';
+      case 'css':
+      case 'scss':
+      case 'sass':
+      case 'less':
+        return 'css';
+      default:
+        return clean;
+    }
+  }
+
+  private highlightCode(code: string, language: string): string {
+    const rawCode = code.trimEnd();
+    if (!rawCode) return '';
+
+    const resolved = this.normalizeLanguage(language);
+    if (resolved && hljs.getLanguage(resolved)) {
+      try {
+        return hljs.highlight(rawCode, { language: resolved, ignoreIllegals: true }).value;
+      } catch {
+        return this.escapeHtml(rawCode);
+      }
+    }
+
+    // Fallback: auto-detection or escaped html
+    try {
+      const autoResult = hljs.highlightAuto(rawCode);
+      return autoResult.value || this.escapeHtml(rawCode);
+    } catch {
+      return this.escapeHtml(rawCode);
+    }
+  }
+
   private parseMarkdown(text: string): string {
     // 1. Separate code blocks to avoid altering markdown-like tokens inside code
     const codeBlocks: string[] = [];
-    let processed = text.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, (_match, lang, code) => {
-      const language = lang ? this.escapeHtml(lang.trim()) : 'code';
-      const escapedCode = this.escapeHtml(code.trimEnd());
+    let processed = text.replace(/```([a-zA-Z0-9_#+.-]*)\n?([\s\S]*?)```/g, (_match, rawLang, code) => {
+      const displayLang = rawLang ? this.escapeHtml(rawLang.trim()) : 'code';
+      const normalizedLang = this.normalizeLanguage(rawLang || '');
+      const highlightedCode = this.highlightCode(code, normalizedLang);
+
       const blockHtml = `
         <div class="code-container">
           <div class="code-header">
-            <span class="code-lang">${language}</span>
+            <span class="code-lang">${displayLang}</span>
             <button type="button" class="copy-code-btn" title="Copy code">
               <svg class="copy-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -42,7 +100,7 @@ export class MarkdownPipe implements PipeTransform {
               <span class="copy-text">Copy</span>
             </button>
           </div>
-          <pre><code>${escapedCode}</code></pre>
+          <pre><code class="hljs ${normalizedLang ? 'language-' + normalizedLang : ''}">${highlightedCode}</code></pre>
         </div>
       `;
       codeBlocks.push(blockHtml);

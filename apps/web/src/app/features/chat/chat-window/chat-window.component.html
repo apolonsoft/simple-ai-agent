@@ -1,134 +1,160 @@
-<div class="chat-window-container">
+<div class="chat-window-container flex-1 flex flex-col h-full w-full min-h-0 bg-[#faf8f5] text-[#27251e] relative overflow-hidden font-['pplxSans',Inter,sans-serif]">
   @if (sessionId(); as sid) {
-    <!-- Top Session Context Bar -->
-    <header class="chat-header">
-      <div class="session-info">
-        <h2>{{ currentSession()?.title || 'Active Conversation' }}</h2>
-        <span class="session-id-tag">Thread: {{ sid }}</span>
+    <!-- Top Session Context Bar (56px) -->
+    <header class="chat-header h-14 min-h-14 border-b border-[#d1d1cd] flex items-center justify-between px-6 bg-[#faf8f5] shrink-0 z-10">
+      <div class="session-info flex items-baseline gap-2.5 overflow-hidden">
+        <h2 class="text-sm font-medium text-[#000000] truncate m-0">{{ currentSession()?.title || 'Active Conversation' }}</h2>
+        <span class="session-id-tag text-[11px] text-[#92918b] font-mono shrink-0">Thread: {{ sid }}</span>
       </div>
 
-      <div class="header-status" [class.is-streaming]="isStreaming()">
-        <span class="status-indicator"></span>
-        <span class="status-text">{{ isStreaming() ? 'LLM Streaming Active' : 'System Ready' }}</span>
+      <div class="header-status flex items-center gap-1.5 text-xs text-[#72706b] px-2.5 py-1 rounded-full bg-white border border-[#d1d1cd] shadow-[0_1px_2px_rgba(0,0,0,0.04)]" [class.is-streaming]="isStreaming()">
+        <span class="status-indicator w-2 h-2 rounded-full" [class.bg-[#016a71]]="isStreaming()" [class.bg-[#92918b]]="!isStreaming()"></span>
+        <span class="status-text text-[11px] font-medium" [class.text-[#016a71]]="isStreaming()">{{ isStreaming() ? 'LLM Streaming Active' : 'System Ready' }}</span>
       </div>
     </header>
 
-    <!-- Message History Viewport -->
-    <div class="messages-viewport" #messagesContainer (click)="onMessagesClick($event)">
+    <!-- Message History Viewport: Centered 640px Max Width -->
+    <div class="messages-viewport flex-1 min-h-0 overflow-y-auto px-4 py-6 flex flex-col relative" #messagesContainer (click)="onMessagesClick($event)">
       @if (isLoadingMessages()) {
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <span>Retrieving thread memory...</span>
+        <div class="loading-state flex flex-col items-center justify-center my-auto text-[#72706b] gap-3">
+          <div class="spinner w-5 h-5 rounded-full border-2 border-[#d1d1cd] border-t-[#27251e] animate-spin"></div>
+          <span class="text-xs">Retrieving thread memory...</span>
         </div>
       } @else if (messages().length === 0) {
-        <div class="empty-conversation">
-          <div class="empty-badge">🚀 Enterprise Pluggable Agent</div>
-          <h3>How can I assist you today?</h3>
-          <p>Ask anything about architecture, code reviews, debugging, or system design.</p>
+        <div class="empty-conversation max-w-[640px] w-full mx-auto my-auto flex flex-col items-center justify-center text-center py-8 px-4">
+          <div class="empty-badge text-xs font-medium text-[#016a71] bg-[#016a71]/10 border border-[#016a71]/20 px-3 py-1 rounded-full mb-3">
+            Research & Execution Terminal
+          </div>
+          <h3 class="text-base font-medium text-[#000000] mb-1">How can I assist you today?</h3>
+          <p class="text-sm text-[#72706b] mb-6 max-w-[480px]">Ask anything about architecture, code reviews, debugging, or system design.</p>
           
-          <div class="quick-prompts">
-            <button class="quick-chip" (click)="setQuickPrompt('Explain how PostgreSQL connection pooling prevents LLM starvation.')">
+          <div class="quick-prompts grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-[600px]">
+            <button class="quick-chip h-9 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs text-[#27251e] hover:bg-[#e8e6e1] transition-colors cursor-pointer text-left truncate shadow-[0_1px_2px_rgba(0,0,0,0.04)]" (click)="setQuickPrompt('Explain how PostgreSQL connection pooling prevents LLM starvation.')">
               💡 Connection Pooling Architecture
             </button>
-            <button class="quick-chip" (click)="setQuickPrompt('Calculate 45 * 123 using the calculator tool.')">
+            <button class="quick-chip h-9 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs text-[#27251e] hover:bg-[#e8e6e1] transition-colors cursor-pointer text-left truncate shadow-[0_1px_2px_rgba(0,0,0,0.04)]" (click)="setQuickPrompt('Calculate 45 * 123 using the calculator tool.')">
               🧮 Calculator Tool Calling
             </button>
-            <button class="quick-chip" (click)="setQuickPrompt('Review the async sliding-window rate limiter in Redis.')">
+            <button class="quick-chip h-9 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs text-[#27251e] hover:bg-[#e8e6e1] transition-colors cursor-pointer text-left truncate shadow-[0_1px_2px_rgba(0,0,0,0.04)]" (click)="setQuickPrompt('Review the async sliding-window rate limiter in Redis.')">
               ⚡ Redis Rate Limiter Deep Dive
             </button>
-            <button class="quick-chip" (click)="setQuickPrompt('Help me write an automated integration test in Vitest.')">
+            <button class="quick-chip h-9 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs text-[#27251e] hover:bg-[#e8e6e1] transition-colors cursor-pointer text-left truncate shadow-[0_1px_2px_rgba(0,0,0,0.04)]" (click)="setQuickPrompt('Help me write an automated integration test in Vitest.')">
               🧪 Test Automation Guidance
             </button>
           </div>
         </div>
       } @else {
-        <div class="message-feed">
+        <div class="message-feed max-w-[640px] w-full mx-auto flex flex-col gap-6">
           @for (msg of messages(); track $index) {
-            <div class="message-row" [class.user-row]="msg.role === 'user'" [class.assistant-row]="msg.role === 'assistant'">
-              <div class="avatar" [class.user-avatar]="msg.role === 'user'" [class.assistant-avatar]="msg.role === 'assistant'">
+            <div class="message-row flex gap-3 w-full" [class.user-row]="msg.role === 'user'" [class.assistant-row]="msg.role === 'assistant'" [class.flex-row-reverse]="msg.role === 'user'">
+              <!-- Avatar Circle: 28px -->
+              <div class="avatar w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                   [class.user-avatar]="msg.role === 'user'"
+                   [class.assistant-avatar]="msg.role === 'assistant'"
+                   [class.bg-[#27251e]]="msg.role === 'user'"
+                   [class.text-white]="msg.role === 'user'"
+                   [class.bg-white]="msg.role === 'assistant'"
+                   [class.border]="msg.role === 'assistant'"
+                   [class.border-[#d1d1cd]]="msg.role === 'assistant'"
+                   [class.text-[#016a71]]="msg.role === 'assistant'">
                 @if (msg.role === 'user') {
-                  <svg class="avatar-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="avatar-icon w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
                 } @else {
-                  <svg class="avatar-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="avatar-icon w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
                   </svg>
                 }
               </div>
 
-              <div class="bubble" [class.user-bubble]="msg.role === 'user'" [class.assistant-bubble]="msg.role === 'assistant'">
-                <div class="bubble-header">
-                  <span class="author-label">{{ msg.role === 'user' ? 'You' : 'AI Assistant' }}</span>
+              <!-- Message Bubble / Document Surface -->
+              <div class="bubble max-w-[85%] rounded-2xl p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] border border-[#d1d1cd]"
+                   [class.user-bubble]="msg.role === 'user'"
+                   [class.assistant-bubble]="msg.role === 'assistant'"
+                   [class.bg-[#f0eeea]]="msg.role === 'user'"
+                   [class.text-[#27251e]]="msg.role === 'user'"
+                   [class.bg-white]="msg.role === 'assistant'"
+                   [class.text-[#27251e]]="msg.role === 'assistant'">
+                <div class="bubble-header flex items-center justify-between gap-4 mb-1 text-[11px] text-[#72706b]">
+                  <span class="author-label font-medium uppercase tracking-wider">{{ msg.role === 'user' ? 'You' : 'AI Assistant' }}</span>
                   @if (msg.created_at) {
-                    <span class="timestamp">{{ msg.created_at | date:'shortTime' }}</span>
+                    <span class="timestamp opacity-70">{{ msg.created_at | date:'shortTime' }}</span>
                   }
                 </div>
 
-                <div class="bubble-content">
+                <div class="bubble-content text-sm leading-relaxed">
                   @if (msg.role === 'assistant') {
                     @if (msg.tool_calls && msg.tool_calls.length > 0) {
-                      <div class="tool-calls-container">
+                      <div class="tool-calls-container flex flex-col gap-2.5 mb-3">
                         @for (tc of msg.tool_calls; track tc.id) {
-                          <div class="tool-call-card" [class]="'status-' + (tc.status || 'pending')">
-                            <div class="tool-call-header">
-                              <div class="tool-title">
-                                <span class="tool-icon">{{ tc.tool === 'search_web' ? '🌐' : '🧮' }}</span>
-                                <span class="tool-name">Tool: <strong>{{ tc.tool }}</strong></span>
+                          <div class="tool-call-card bg-[#faf8f5] border border-[#d1d1cd] rounded-2xl p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]" [class]="'status-' + (tc.status || 'pending')">
+                            <div class="tool-call-header flex items-center justify-between pb-2 border-b border-[#d1d1cd]">
+                              <div class="tool-title flex items-center gap-1.5 text-xs text-[#27251e]">
+                                <span class="tool-icon text-sm">{{ tc.tool === 'search_web' ? '🌐' : '🧮' }}</span>
+                                <span class="tool-name">Tool: <strong class="font-mono text-[#000000]">{{ tc.tool }}</strong></span>
                               </div>
-                              <span class="tool-badge" [class]="'badge-' + (tc.status || 'pending')">
+                              <span class="tool-badge text-[11px] font-medium px-2 py-0.5 rounded-full" [class]="'badge-' + (tc.status || 'pending')"
+                                    [class.bg-[#016a71]/10]="!tc.status || tc.status === 'pending'"
+                                    [class.text-[#016a71]]="!tc.status || tc.status === 'pending'"
+                                    [class.border]="!tc.status || tc.status === 'pending'"
+                                    [class.border-[#016a71]/20]="!tc.status || tc.status === 'pending'"
+                                    [class.bg-[#e8e6e1]]="tc.status === 'approved' || tc.status === 'executed'"
+                                    [class.text-[#27251e]]="tc.status === 'approved' || tc.status === 'executed'"
+                                    [class.bg-[#f0eeea]]="tc.status === 'rejected'"
+                                    [class.text-[#72706b]]="tc.status === 'rejected'">
                                 {{ tc.status === 'executed' ? 'Executed' : tc.status === 'rejected' ? 'Rejected' : tc.status === 'approved' ? 'Approved (Running...)' : 'Approval Required' }}
                               </span>
                             </div>
 
-                            <div class="tool-call-body">
-                              <div class="tool-args-section">
-                                <span class="tool-section-label">Parameters:</span>
-                                <div class="tool-args-grid">
+                            <div class="tool-call-body mt-2">
+                              <div class="tool-args-section flex flex-col gap-1">
+                                <span class="tool-section-label text-[10px] font-medium uppercase tracking-wider text-[#92918b]">Parameters:</span>
+                                <div class="tool-args-grid flex flex-wrap gap-1.5">
                                   @for (param of getToolParams(tc.arguments); track param.key) {
-                                    <div class="tool-arg-chip">
-                                      <span class="arg-key">{{ param.key }}:</span>
-                                      <span class="arg-val">{{ param.value }}</span>
+                                    <div class="tool-arg-chip bg-white border border-[#d1d1cd] rounded px-2 py-0.5 text-xs font-mono">
+                                      <span class="arg-key text-[#72706b] mr-1">{{ param.key }}:</span>
+                                      <span class="arg-val text-[#27251e] font-medium">{{ param.value }}</span>
                                     </div>
                                   }
                                 </div>
                               </div>
 
                               @if (tc.status === 'executed' && tc.result !== undefined) {
-                                <div class="tool-result-section">
-                                  <span class="tool-section-label">Result:</span>
-                                  <span class="tool-result-value">{{ tc.result }}</span>
+                                <div class="tool-result-section mt-2 pt-2 border-t border-[#d1d1cd] flex items-center gap-2">
+                                  <span class="tool-section-label text-[10px] font-medium uppercase tracking-wider text-[#92918b]">Result:</span>
+                                  <span class="tool-result-value font-mono text-xs text-[#016a71] font-medium bg-white px-2 py-0.5 rounded border border-[#d1d1cd]">{{ tc.result }}</span>
                                 </div>
                               }
 
                               @if (tc.status === 'rejected') {
-                                <div class="tool-result-section rejected-section">
-                                  <span class="tool-section-label">Status:</span>
-                                  <span class="tool-rejected-text">Action rejected by user. Tool '{{ tc.tool }}' was not executed.</span>
+                                <div class="tool-result-section rejected-section mt-2 pt-2 border-t border-[#d1d1cd] flex items-center gap-2">
+                                  <span class="tool-section-label text-[10px] font-medium uppercase tracking-wider text-[#92918b]">Status:</span>
+                                  <span class="tool-rejected-text text-xs italic text-[#72706b]">Action rejected by user. Tool '{{ tc.tool }}' was not executed.</span>
                                 </div>
                               }
                             </div>
 
                             @if (!tc.status || tc.status === 'pending') {
-                              <div class="tool-approval-actions">
+                              <div class="tool-approval-actions flex items-center justify-end gap-2 mt-2.5 pt-2 border-t border-[#d1d1cd]">
                                 <button
                                   type="button"
-                                  class="btn-approve"
-                                  [disabled]="isExecutingTool()"
-                                  (click)="onApproveTool(msg, tc)"
-                                >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                  Approve & Run
-                                </button>
-                                <button
-                                  type="button"
-                                  class="btn-reject"
+                                  class="btn-reject h-7 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs font-medium text-[#72706b] hover:bg-[#e8e6e1] hover:text-[#27251e] flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
                                   [disabled]="isExecutingTool()"
                                   (click)="onRejectTool(msg, tc)"
                                 >
-                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                  Reject
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                  <span>Reject</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  class="btn-approve h-7 px-3 rounded-full bg-[#27251e] text-white text-xs font-medium hover:bg-[#000000] flex items-center gap-1 transition-colors cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:opacity-50"
+                                  [disabled]="isExecutingTool()"
+                                  (click)="onApproveTool(msg, tc)"
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                  <span>Approve & Run</span>
                                 </button>
                               </div>
                             }
@@ -141,10 +167,10 @@
                       <div class="markdown-body" [innerHTML]="msg.content | markdown"></div>
                     }
                     @if (msg.isStreaming) {
-                      <span class="streaming-cursor" title="Streaming token generation..."></span>
+                      <span class="streaming-cursor inline-block w-1.5 h-3.5 bg-[#016a71] ml-1 align-middle animate-pulse" title="Streaming token generation..."></span>
                     }
                   } @else {
-                    <p class="user-text">{{ msg.content }}</p>
+                    <p class="user-text m-0 whitespace-pre-wrap leading-relaxed text-[#27251e]">{{ msg.content }}</p>
                   }
                 </div>
               </div>
@@ -154,60 +180,77 @@
       }
 
       @if (streamError(); as err) {
-        <div class="error-banner">
-          <span class="error-icon">⚠️</span>
-          <span class="error-text">{{ err }}</span>
+        <div class="error-banner max-w-[640px] w-full mx-auto mt-4 bg-white border border-[#d1d1cd] text-[#27251e] px-3.5 py-2.5 rounded-xl flex items-center gap-2 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <span class="error-icon text-sm">⚠️</span>
+          <span class="error-text text-[#72706b]">{{ err }}</span>
         </div>
       }
-      <div #scrollAnchor class="scroll-anchor"></div>
+      <div #scrollAnchor class="scroll-anchor h-1 w-full pointer-events-none invisible shrink-0"></div>
     </div>
 
-    <!-- Sticky Chat Input Bar -->
-    <footer class="input-dock">
-      <form class="input-form" (submit)="onSubmit($event)">
+    <!-- Sticky Centered Query Input Hero (Max Width 640px) -->
+    <footer class="input-dock bg-[#faf8f5] p-4 shrink-0 sticky bottom-0 z-10 border-t border-[#d1d1cd]">
+      <form class="input-form max-w-[640px] w-full mx-auto bg-white border border-[#d1d1cd] rounded-xl p-3 shadow-[0_1px_2px_rgba(0,0,0,0.08)] flex flex-col gap-2 transition-all focus-within:border-[#92918b]" (submit)="onSubmit($event)">
         <textarea
           #inputArea
-          class="chat-input"
+          class="chat-input w-full resize-none border-none bg-transparent text-base text-[#000000] placeholder-[#92918b] focus:outline-none min-h-[32px] max-h-[140px] leading-relaxed font-normal"
           rows="1"
-          placeholder="Type your prompt... (Press Enter to send, Shift+Enter for new line)"
+          placeholder="Ask anything... (Press Enter to send, Shift+Enter for new line)"
           [(ngModel)]="promptText"
           name="promptText"
           (keydown)="onKeyDown($event)"
           [disabled]="isStreaming()"
         ></textarea>
 
-        <div class="input-actions">
-          @if (isStreaming()) {
-            <button type="button" class="stop-btn" (click)="onAbort()" title="Stop Generation">
-              <span class="stop-icon">■</span>
-              <span>Stop</span>
-            </button>
-          } @else {
-            <button
-              type="submit"
-              class="send-btn"
-              [disabled]="!promptText.trim()"
-              title="Send message (Enter)"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
-            </button>
-          }
+        <div class="input-actions flex items-center justify-between pt-1 border-t border-[#faf8f5]">
+          <!-- Mode Chip & Model Selector -->
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 bg-[#faf8f5] text-[#27251e] text-xs font-medium rounded-md flex items-center gap-1 border border-[#d1d1cd]">
+              <span class="text-[10px]">⚡</span> Tools Active
+            </span>
+            <span class="text-xs text-[#72706b] hover:text-[#27251e] cursor-pointer">Gemini / Tavily ▾</span>
+          </div>
+
+          <!-- Submit / Stop Action -->
+          <div class="flex items-center gap-2">
+            @if (isStreaming()) {
+              <button
+                type="button"
+                class="stop-btn h-7 px-3 rounded-full bg-[#27251e] text-white text-xs font-medium flex items-center gap-1.5 hover:bg-[#000000] transition-colors cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                (click)="onAbort()"
+                title="Stop Generation"
+              >
+                <span class="stop-icon text-[9px]">■</span>
+                <span>Stop</span>
+              </button>
+            } @else {
+              <button
+                type="submit"
+                class="send-btn w-7 h-7 rounded-full bg-[#27251e] text-white flex items-center justify-center hover:bg-[#000000] transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.06)] active:scale-95"
+                [disabled]="!promptText.trim()"
+                title="Send message (Enter)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                </svg>
+              </button>
+            }
+          </div>
         </div>
       </form>
-      <div class="input-footnote">
+      <div class="input-footnote max-w-[640px] mx-auto text-center text-[11px] text-[#92918b] mt-2">
         <span>Enterprise Multi-Tenant AI Agent • High-Throughput Streaming Engine</span>
       </div>
     </footer>
   } @else {
-    <!-- No Session Selected Placeholder -->
-    <div class="no-session-selected">
-      <div class="empty-hero">
-        <span class="hero-icon">✨</span>
-        <h2>Select or create a conversation</h2>
-        <p>Choose an existing thread from the sidebar or click "+ New Chat" to start fresh.</p>
+    <!-- No Session Selected Placeholder (Centered Hero) -->
+    <div class="no-session-selected flex-1 flex items-center justify-center p-8 bg-[#faf8f5]">
+      <div class="empty-hero text-center max-w-[400px]">
+        <div class="w-12 h-12 rounded-full bg-white border border-[#d1d1cd] flex items-center justify-center mx-auto mb-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] text-lg">
+          <span class="hero-icon">✨</span>
+        </div>
+        <h2 class="text-base font-medium text-[#000000] mb-1">Select or create a conversation</h2>
+        <p class="text-xs text-[#72706b] leading-relaxed">Choose an existing thread from the sidebar or click "+ New Chat" to start fresh.</p>
       </div>
     </div>
   }

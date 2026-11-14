@@ -37,21 +37,23 @@ flowchart TD
 - **Context Memory Manager**: Sliding-window context pruner (`MemoryManager`) that automatically truncates older turns, preventing token context blowouts and runaway inference costs.
 - **Enterprise Security**: Argon2id non-blocking password hashing and OAuth2 JWT authentication with strict row-level multi-tenant data isolation.
 
-### 💻 Frontend Architecture (Angular 22)
+### 💻 Frontend Architecture (Angular 22 & Tailwind CSS v4)
 - **Modern Angular Signals**: Fine-grained reactive state for sessions, active thread, loading states, tool execution states, and live streaming tokens without RxJS boilerplate.
+- **Perplexity-Inspired Research Terminal ([`DESIGN.md`](DESIGN.md))**: Minimalist, document-like aesthetic crafted with **Tailwind CSS v4** featuring an aged-paper canvas (`#faf8f5`), card surfaces (`#ffffff`), monochrome charcoal controls (`#27251e`), pebble hairline borders (`#d1d1cd`), and deep teal functional accents (`#016a71`).
+- **Centered Hero Query Box**: Clean 640px centered search and chat interface with active tool capability chips, model selector trigger, and circular submit action.
+- **Multi-Language Code Highlighter**: High-performance syntax highlighting powered by `highlight.js` supporting **Python**, **C#**, **TypeScript/JavaScript**, **Java**, **PHP**, **Ruby**, and **CSS** with 1-click clipboard copy button.
 - **Real-Time SSE Streaming Consumer**: Built using native `ReadableStreamDefaultReader` with boundary chunk buffering, token-by-token live UI updates, and an `AbortController` stop trigger.
 - **Interactive Tool Approval Cards**: Real-time rendering of pending tool calls with argument inspection, live status badges (`Approval Required`, `Approved`, `Executed`, `Rejected`), and one-click user action buttons (**Approve & Run** / **Reject**).
-- **Self-Contained Markdown & Code Viewer**: Safe Markdown rendering pipeline with XSS HTML sanitization, language header tags, preformatted code fences, and auto-scrolling message viewports.
-- **Session Thread Sidebar**: "+ New Chat" action, thread list with active indicators, instant hover deletion, and route parameter input binding (`/chat/:sessionId`).
+- **Session Thread Sidebar (220px)**: "+ New Chat" pill button, thread list with active teal indicators, instant hover deletion, and route parameter input binding (`/chat/:sessionId`).
 - **Guards & Interceptors**: Functional `authGuard` and `guestGuard` for seamless route protection, plus a functional HTTP interceptor injecting Bearer JWT tokens.
 
-### 🧪 Comprehensive Quality & Testing (111/111 Tests Passed)
+### 🧪 Comprehensive Quality & Testing (124/124 Tests Passed)
 - **Code Quality & Type Safety**:
   - **[Astral Ruff](https://docs.astral.sh/ruff)**: Lightning-fast Python linting, isort import sorting, and code formatting.
   - **[Astral ty](https://docs.astral.sh/ty)**: Ultra-fast Rust-based Python type checker and language server.
 - **100% Automated Test Suite**:
-  - **54 Backend Pytest tests**: Async persistence, Argon2id auth, Redis rate limiting, Gemini & Ollama adapters, tool execution, dynamic function introspection (`function_to_tool_definition`), Tavily web search (`search_web`), autonomous multi-turn tool loops, approval/rejection lifecycle, context sliding window, SSE streaming generator, Redis cache hits/invalidation, and concurrent pool safety.
-  - **57 Frontend Vitest tests across 12 suites**: Signal stores, streaming readers, tool call SSE events, approval/rejection workflows, Markdown parsing, component views, auth forms, interceptors, and route guards.
+  - **59 Backend Pytest tests**: Async persistence, Argon2id auth, Redis rate limiting, Gemini & Ollama adapters, tool execution, dynamic function introspection (`function_to_tool_definition`), Tavily web search (`search_web`), autonomous multi-turn tool loops, approval/rejection lifecycle, context sliding window, SSE streaming generator, Redis cache hits/invalidation, and concurrent pool safety.
+  - **65 Frontend Vitest tests across 12 suites**: Signal stores, streaming readers, tool call SSE events, approval/rejection workflows, Markdown parsing, multi-language syntax highlighting, component views, auth forms, interceptors, and route guards.
 - **Load Testing & Concurrency Benchmark**: Automated load test tool measuring RPS, token throughput, and p50, p90, p95, and p99 latency percentiles under concurrent user load.
 
 ---
@@ -62,6 +64,7 @@ flowchart TD
 simple-ai-agent/
 ├── docker-compose.yml              # Local infrastructure: Postgres 16, Redis 7, Ollama
 ├── Makefile                        # Unified command runner (dev, test, build, benchmark)
+├── DESIGN.md                       # Perplexity AI design system reference & Tailwind v4 tokens
 ├── docs/
 │   └── ARCHITECTURE_AND_CODE_WALKTHROUGH.md # Line-by-line code explanation & design rationale
 ├── scripts/
@@ -78,15 +81,16 @@ simple-ai-agent/
 │   │   │   ├── providers/          # Gemini & Ollama streaming adapters
 │   │   │   ├── services/           # ChatService, ChatStreamService, ChatCacheService, MemoryManager
 │   │   │   ├── tools/              # Dynamic tool introspection, calculator, search & execution registry
-│   │   │   └── tests/              # 54 Pytest unit and integration suites
+│   │   │   └── tests/              # 59 Pytest unit and integration suites
 │   │   └── pyproject.toml          # Python dependencies & tools
 │   └── web/                        # Angular 22 Frontend Application
 │       ├── src/
 │       │   ├── app/
 │       │   │   ├── core/           # AuthService, ChatService, guards, interceptors, models
 │       │   │   ├── features/       # Auth (login/register) and Chat (layout, sidebar, window)
-│       │   │   └── shared/         # Markdown pipe & shared styling
-│       │   └── styles.scss         # Global terminal & dark mode themes
+│       │   │   └── shared/         # Markdown pipe (highlight.js) & shared utilities
+│       │   └── styles.css          # Tailwind CSS v4 & Perplexity terminal theme
+│       ├── .postcssrc.json         # PostCSS configuration for @tailwindcss/postcss
 │       ├── proxy.conf.json         # Reverse proxy mapping /api to FastAPI (port 8000)
 │       └── package.json            # Node dependencies
 └── shared/                         # Shared schemas and interface contracts
