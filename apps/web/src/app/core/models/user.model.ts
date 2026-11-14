@@ -15,3 +15,21 @@ export interface RegisterRequest {
   password: string;
   role?: string;
 }
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  new_password: string;
+}
+
+export interface VerifyResetTokenResponse {
+  valid: boolean;
+  email?: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}

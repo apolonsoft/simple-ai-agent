@@ -137,4 +137,39 @@ describe('AuthService', () => {
     expect(service.isAuthenticated()).toBe(false);
     expect(mockRouter.navigate).toHaveBeenCalledWith(['/login']);
   });
+
+  it('should call forgotPassword and return message response', () => {
+    const email = 'user@example.com';
+    service.forgotPassword(email).subscribe((res) => {
+      expect(res.message).toContain('password reset link has been sent');
+    });
+
+    const req = httpTestingController.expectOne('/api/v1/auth/forgot-password');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ email });
+    req.flush({ message: 'If an account with that email exists, a password reset link has been sent.' });
+  });
+
+  it('should call verifyResetToken and return validation response', () => {
+    const token = 'sample-token-xyz';
+    service.verifyResetToken(token).subscribe((res) => {
+      expect(res.valid).toBe(true);
+      expect(res.email).toBe('user@example.com');
+    });
+
+    const req = httpTestingController.expectOne('/api/v1/auth/verify-reset-token?token=sample-token-xyz');
+    expect(req.request.method).toBe('GET');
+    req.flush({ valid: true, email: 'user@example.com' });
+  });
+
+  it('should call resetPassword with token and new password', () => {
+    service.resetPassword('sample-token-xyz', 'NewPass123!').subscribe((res) => {
+      expect(res.message).toBe('Password has been successfully reset.');
+    });
+
+    const req = httpTestingController.expectOne('/api/v1/auth/reset-password');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ token: 'sample-token-xyz', new_password: 'NewPass123!' });
+    req.flush({ message: 'Password has been successfully reset.' });
+  });
 });
