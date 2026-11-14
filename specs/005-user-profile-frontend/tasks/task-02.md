@@ -1,6 +1,6 @@
 ### Task 02: ProfileComponent & Routing
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Create standalone `ProfileComponent` under `apps/web/src/app/features/profile/` with reactive form editing, avatar file upload trigger, error/success banners, and register the `/profile` route guarded by `authGuard`.

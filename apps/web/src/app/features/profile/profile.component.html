@@ -1,0 +1,175 @@
+<div class="min-h-screen w-full bg-[#faf8f5] text-[#27251e] font-['pplxSans',Inter,sans-serif] p-4 sm:p-8 flex flex-col items-center">
+  <div class="w-full max-w-2xl">
+    <!-- Back to Chat Navigation -->
+    <div class="mb-6">
+      <a
+        routerLink="/chat"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-[#d1d1cd] text-xs font-normal text-[#72706b] hover:text-[#27251e] hover:bg-[#e8e6e1] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Back to Chat</span>
+      </a>
+    </div>
+
+    <!-- Header Title -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-semibold tracking-tight text-[#000000]">Account Profile</h1>
+      <p class="text-xs text-[#72706b] mt-1">Manage your identity details, avatar image, and account settings.</p>
+    </div>
+
+    <!-- Alerts Feedback -->
+    @if (errorMessage()) {
+      <div class="mb-6 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span>⚠️</span>
+          <span>{{ errorMessage() }}</span>
+        </div>
+        <button (click)="dismissAlerts()" class="text-red-500 hover:text-red-700 cursor-pointer font-bold px-1">✕</button>
+      </div>
+    }
+
+    @if (successMessage()) {
+      <div class="mb-6 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span>✓</span>
+          <span>{{ successMessage() }}</span>
+        </div>
+        <button (click)="dismissAlerts()" class="text-emerald-600 hover:text-emerald-800 cursor-pointer font-bold px-1">✕</button>
+      </div>
+    }
+
+    <!-- Main Profile Card -->
+    <div class="bg-white rounded-2xl border border-[#d1d1cd] shadow-[0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden">
+      <!-- Avatar Section -->
+      <div class="p-6 border-b border-[#e8e6e1] flex flex-col sm:flex-row items-center sm:items-start gap-5">
+        <div class="relative shrink-0">
+          @if (user()?.avatar_url) {
+            <img
+              [src]="user()?.avatar_url"
+              alt="Profile Avatar"
+              class="w-20 h-20 rounded-full object-cover border border-[#d1d1cd] shadow-sm"
+            />
+          } @else {
+            <div class="w-20 h-20 rounded-full bg-[#27251e] text-white flex items-center justify-center text-2xl font-medium shadow-sm">
+              {{ (user()?.full_name?.[0] || user()?.email?.[0] || 'U').toUpperCase() }}
+            </div>
+          }
+
+          @if (isUploadingAvatar()) {
+            <div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+              <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          }
+        </div>
+
+        <div class="flex-1 text-center sm:text-left">
+          <h2 class="text-base font-medium text-[#27251e]">
+            {{ user()?.full_name || 'Anonymous User' }}
+          </h2>
+          <p class="text-xs text-[#72706b] mt-0.5">{{ user()?.email }}</p>
+          <div class="mt-3 flex items-center justify-center sm:justify-start gap-3">
+            <input
+              #fileInput
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              class="hidden"
+              (change)="onFileSelected($event)"
+            />
+            <button
+              type="button"
+              [disabled]="isUploadingAvatar()"
+              (click)="fileInput.click()"
+              class="h-8 px-3.5 rounded-full bg-white border border-[#d1d1cd] text-xs font-normal text-[#27251e] hover:bg-[#e8e6e1] transition-colors cursor-pointer flex items-center gap-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] disabled:opacity-50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span>{{ isUploadingAvatar() ? 'Uploading...' : 'Change Photo' }}</span>
+            </button>
+            <span class="text-[11px] text-[#92918b]">JPG, PNG or WebP up to 5MB</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Form -->
+      <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="p-6 flex flex-col gap-5">
+        <!-- Read-only Email and Role -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-[#72706b] mb-1.5">Email Address</label>
+            <input
+              type="text"
+              [value]="user()?.email || ''"
+              disabled
+              class="w-full h-9 px-3 rounded-xl bg-[#faf8f5] border border-[#e8e6e1] text-xs text-[#72706b] cursor-not-allowed select-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-[#72706b] mb-1.5">System Role</label>
+            <div class="h-9 px-3 rounded-xl bg-[#faf8f5] border border-[#e8e6e1] flex items-center">
+              <span class="text-[11px] font-medium text-[#016a71] bg-[#016a71]/10 px-2 py-0.5 rounded-full border border-[#016a71]/20 uppercase tracking-wider">
+                {{ user()?.role || 'user' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Full Name Input -->
+        <div>
+          <label for="full_name" class="block text-xs font-medium text-[#27251e] mb-1.5">
+            Full Name
+          </label>
+          <input
+            id="full_name"
+            type="text"
+            formControlName="full_name"
+            placeholder="e.g. Alice Cooper"
+            class="w-full h-9 px-3 rounded-xl bg-white border border-[#d1d1cd] text-xs text-[#27251e] placeholder:text-[#92918b] focus:outline-none focus:border-[#27251e] transition-colors"
+          />
+          @if (profileForm.get('full_name')?.hasError('maxlength')) {
+            <p class="text-[11px] text-red-600 mt-1">Full name cannot exceed 100 characters.</p>
+          }
+        </div>
+
+        <!-- Bio Textarea -->
+        <div>
+          <label for="bio" class="block text-xs font-medium text-[#27251e] mb-1.5">
+            Bio
+          </label>
+          <textarea
+            id="bio"
+            rows="3"
+            formControlName="bio"
+            placeholder="Tell us a little bit about yourself or your agent workflow..."
+            class="w-full p-3 rounded-xl bg-white border border-[#d1d1cd] text-xs text-[#27251e] placeholder:text-[#92918b] focus:outline-none focus:border-[#27251e] transition-colors resize-none"
+          ></textarea>
+          @if (profileForm.get('bio')?.hasError('maxlength')) {
+            <p class="text-[11px] text-red-600 mt-1">Bio cannot exceed 500 characters.</p>
+          }
+        </div>
+
+        <!-- Form Submit Action -->
+        <div class="pt-2 flex justify-end">
+          <button
+            type="submit"
+            [disabled]="isSaving() || profileForm.invalid"
+            class="h-9 px-5 rounded-full bg-[#27251e] text-white text-xs font-medium flex items-center justify-center gap-2 hover:bg-[#000000] active:scale-[0.99] transition-all cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            @if (isSaving()) {
+              <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>Saving...</span>
+            } @else {
+              <span>Save Changes</span>
+            }
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
