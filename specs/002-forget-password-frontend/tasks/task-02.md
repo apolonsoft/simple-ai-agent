@@ -1,6 +1,6 @@
 ### Task 02: Forgot Password Component, Login Footer Link & Route
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Create the standalone `ForgotPasswordComponent` providing an email input form and confirmation screen, add a link in `LoginComponent`'s card footer, register `/forgot-password` in `app.routes.ts` protected by `guestGuard`, and add unit tests.
