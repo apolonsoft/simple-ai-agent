@@ -62,7 +62,7 @@ flowchart TD
 
 ```text
 simple-ai-agent/
-├── docker-compose.yml              # Local infrastructure: Postgres 16, Redis 7, Ollama
+├── docker-compose.yml              # Local infrastructure: Postgres 16, Redis 7, Mailpit, Ollama (profile-enabled)
 ├── Makefile                        # Unified command runner (dev, test, build, benchmark)
 ├── DESIGN.md                       # Perplexity AI design system reference & Tailwind v4 tokens
 ├── docs/
@@ -104,7 +104,7 @@ simple-ai-agent/
 ## Prerequisites
 
 Ensure you have the following installed on your machine:
-- **Docker & Docker Compose** (for PostgreSQL, Redis, Ollama)
+- **Docker & Docker Compose** (for PostgreSQL, Redis, Mailpit, and optional Ollama)
 - **Python 3.10+** (with virtual environment support)
 - **Node.js 22+ or 24+** (Node `v24.15.0` recommended)
 - **pnpm** (Package manager for the frontend)
@@ -116,7 +116,7 @@ Ensure you have the following installed on your machine:
 The root `Makefile` provides one-command shortcuts for all developer operations:
 
 ```bash
-# 1. Start local database & cache containers (PostgreSQL, Redis, Ollama)
+# 1. Start local database, cache, and email containers (PostgreSQL, Redis, Mailpit; Ollama via profile)
 make up
 
 # 2. Verify infrastructure connectivity
@@ -186,6 +186,9 @@ cp ../../.env.example .env
 ```
 Key configuration values in `.env`:
 ```ini
+# Docker Compose Profiles (uncomment to run local Ollama container)
+# COMPOSE_PROFILES=ollama
+
 ENVIRONMENT=development
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/simple_ai_agent
 REDIS_URL=redis://localhost:6379/0

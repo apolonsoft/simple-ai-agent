@@ -229,6 +229,7 @@ class BaseLLMProvider(ABC):
 #### Ollama Provider (`OllamaProvider`)
 - Connects to the local Ollama instance at `http://localhost:11434/api/chat`.
 - Transmits messages with `"stream": True` and reads the returning NDJSON stream line by line, extracting `chunk["message"]["content"]`.
+- **Infrastructure Profile Management**: To conserve host resources, the `ollama` container in `docker-compose.yml` is tagged with `profiles: ["ollama"]`. It remains dormant during standard `docker compose up` / `make up` runs. Setting `COMPOSE_PROFILES=ollama` in `.env` activates the container. The verification utility (`scripts/verify_infra.py`) inspects `COMPOSE_PROFILES` dynamically and verifies port 11434 only when Ollama is configured to run.
 
 ---
 
