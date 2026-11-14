@@ -39,6 +39,11 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6, description="New password, minimum 6 characters")
+
+
 class VerifyResetTokenResponse(BaseModel):
     valid: bool
     email: EmailStr | None = None

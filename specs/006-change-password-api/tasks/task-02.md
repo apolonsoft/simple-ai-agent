@@ -1,6 +1,6 @@
 ### Task 02: Schemas, AuthService & AuthController Change Password Logic
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Define `ChangePasswordRequest` in `apps/api/app/schemas/user.py`, implement `change_password` method in `AuthService` with Argon2 verification, same-password check, hash updating, and Redis key revocation, and expose via `AuthController`.

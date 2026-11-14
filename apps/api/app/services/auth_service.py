@@ -3,11 +3,13 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
+from app.core.redis import get_redis_client
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models.password_reset import PasswordResetModel
 from app.models.user import UserModel
@@ -15,8 +17,9 @@ from app.schemas.user import UserCreate
 
 
 class AuthService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, redis_client=None):
         self.db = db
+        self.redis = redis_client
 
     @staticmethod
     def _hash_token(raw_token: str) -> str:
@@ -126,3 +129,37 @@ class AuthService:
         record.used_at = datetime.now(timezone.utc)
         await self.db.commit()
         return True
+
+    async def change_password(
+        self, user: UserModel, current_password: str, new_password: str
+    ) -> None:
+        """
+        Validates the user's current password, checks that the new password is not identical,
+        updates the password hash in the database, and registers a revocation timestamp in Redis
+        to invalidate active tokens across all sessions.
+        """
+        if not verify_password(current_password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect.",
+            )
+
+        if current_password == new_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password cannot be the same as current password.",
+            )
+
+        user.hashed_password = get_password_hash(new_password)
+        await self.db.commit()
+        await self.db.refresh(user)
+
+        # Invalidate existing JWT sessions across devices via Redis
+        try:
+            redis = self.redis or await get_redis_client()
+            now_ts = int(datetime.now(timezone.utc).timestamp())
+            ttl_seconds = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            await redis.set(f"revoked_user:{user.id}", now_ts, ex=ttl_seconds)
+        except Exception:
+            # If Redis is temporarily unreachable, database update has already succeeded
+            pass

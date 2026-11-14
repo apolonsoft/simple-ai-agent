@@ -1,7 +1,9 @@
 # app/controllers/auth_controller.py
 from fastapi import HTTPException, status
 
+from app.models.user import UserModel
 from app.schemas.user import (
+    ChangePasswordRequest,
     MessageResponse,
     Token,
     UserCreate,
@@ -64,3 +66,15 @@ class AuthController:
                 detail="Invalid or expired reset token.",
             )
         return MessageResponse(message="Password has been successfully reset.")
+
+    async def change_password(
+        self, user: UserModel, request_data: ChangePasswordRequest
+    ) -> MessageResponse:
+        await self.service.change_password(
+            user=user,
+            current_password=request_data.current_password,
+            new_password=request_data.new_password,
+        )
+        return MessageResponse(
+            message="Password changed successfully. Please log in with your new password."
+        )
