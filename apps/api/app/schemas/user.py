@@ -1,7 +1,8 @@
 # app/schemas/user.py
 import uuid
+from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserCreate(BaseModel):
@@ -45,3 +46,22 @@ class VerifyResetTokenResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class UserProfileResponse(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+    role: str
+    is_active: bool
+    full_name: str | None = None
+    avatar_url: str | None = None
+    bio: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserProfileUpdate(BaseModel):
+    full_name: str | None = Field(default=None, max_length=100)
+    bio: str | None = Field(default=None, max_length=500)

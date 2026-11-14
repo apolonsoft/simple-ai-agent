@@ -1,6 +1,6 @@
 ### Task 03: Profile Schemas & StorageService Integration
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Define Pydantic schemas for user profile responses and partial updates in `apps/api/app/schemas/user.py`, and implement `StorageService` in `apps/api/app/services/storage_service.py` to handle S3 bucket verification and file uploads using `boto3`.
