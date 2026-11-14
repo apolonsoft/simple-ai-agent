@@ -41,7 +41,10 @@ describe('ProfileComponent', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        provideRouter([]),
+        provideRouter([
+          { path: 'login', component: class {} },
+          { path: 'chat', component: class {} },
+        ]),
         { provide: UserService, useValue: mockUserService },
         AuthService,
       ],
@@ -120,5 +123,96 @@ describe('ProfileComponent', () => {
 
     expect(component.isUploadingAvatar()).toBe(false);
     expect(component.errorMessage()).toBe('Image too large');
+  });
+
+  it('should calculate password strength score dynamically', () => {
+    // Empty
+    component.passwordForm.patchValue({ new_password: '' });
+    expect(component.passwordStrength.score).toBe(0);
+
+    // Too short (< 6 chars)
+    component.passwordForm.patchValue({ new_password: 'abc' });
+    expect(component.passwordStrength.score).toBe(1);
+    expect(component.passwordStrength.label).toBe('Too short');
+
+    // 6 chars simple
+    component.passwordForm.patchValue({ new_password: 'simple' });
+    expect(component.passwordStrength.score).toBe(1);
+    expect(component.passwordStrength.label).toBe('Weak');
+
+    // Length >= 8
+    component.passwordForm.patchValue({ new_password: 'simplelong' });
+    expect(component.passwordStrength.score).toBe(2);
+    expect(component.passwordStrength.label).toBe('Fair');
+
+    // Length >= 8 with uppercase + lowercase
+    component.passwordForm.patchValue({ new_password: 'SimpleLong' });
+    expect(component.passwordStrength.score).toBe(3);
+    expect(component.passwordStrength.label).toBe('Good');
+
+    // Length >= 8, mixed case, number and symbol
+    component.passwordForm.patchValue({ new_password: 'SimpleLong123!' });
+    expect(component.passwordStrength.score).toBe(4);
+    expect(component.passwordStrength.label).toBe('Strong');
+  });
+
+  it('should invalidate passwordForm when passwords do not match', () => {
+    component.passwordForm.patchValue({
+      current_password: 'CurrentPassword123',
+      new_password: 'NewPassword123!',
+      confirm_password: 'DifferentPassword456!',
+    });
+
+    expect(component.passwordForm.hasError('passwordMismatch')).toBe(true);
+    expect(component.passwordForm.invalid).toBe(true);
+
+    const changePasswordSpy = vi.spyOn(authService, 'changePassword');
+    component.onChangePassword();
+    expect(changePasswordSpy).not.toHaveBeenCalled();
+  });
+
+  it('should submit password change and schedule logout after delay', () => {
+    vi.useFakeTimers();
+    const changePasswordSpy = vi.spyOn(authService, 'changePassword').mockReturnValue(
+      of({ message: 'Password changed successfully.' })
+    );
+    const logoutSpy = vi.spyOn(authService, 'logout');
+
+    component.passwordForm.patchValue({
+      current_password: 'CurrentPassword123',
+      new_password: 'NewPassword123!',
+      confirm_password: 'NewPassword123!',
+    });
+
+    component.onChangePassword();
+
+    expect(changePasswordSpy).toHaveBeenCalledWith({
+      current_password: 'CurrentPassword123',
+      new_password: 'NewPassword123!',
+    });
+    expect(component.passwordSuccessMessage()).toContain('Password changed successfully');
+
+    // Fast-forward timers by 2 seconds
+    vi.advanceTimersByTime(2000);
+    expect(logoutSpy).toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+
+  it('should display error message when change password fails', () => {
+    vi.spyOn(authService, 'changePassword').mockReturnValue(
+      throwError(() => ({ error: { detail: 'Current password is incorrect.' } }))
+    );
+
+    component.passwordForm.patchValue({
+      current_password: 'WrongCurrentPassword',
+      new_password: 'NewPassword123!',
+      confirm_password: 'NewPassword123!',
+    });
+
+    component.onChangePassword();
+
+    expect(component.isChangingPassword()).toBe(false);
+    expect(component.passwordErrorMessage()).toBe('Current password is incorrect.');
   });
 });

@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -24,10 +24,57 @@ export class ProfileComponent implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
 
+  // Change password signals
+  readonly isChangingPassword = signal<boolean>(false);
+  readonly passwordErrorMessage = signal<string | null>(null);
+  readonly passwordSuccessMessage = signal<string | null>(null);
+
   readonly profileForm: FormGroup = this.fb.group({
     full_name: ['', [Validators.maxLength(100)]],
     bio: ['', [Validators.maxLength(500)]],
   });
+
+  readonly passwordForm: FormGroup = this.fb.group(
+    {
+      current_password: ['', [Validators.required]],
+      new_password: ['', [Validators.required, Validators.minLength(6)]],
+      confirm_password: ['', [Validators.required]],
+    },
+    { validators: this.passwordMatchValidator }
+  );
+
+  passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
+    const newPass = control.get('new_password')?.value;
+    const confirmPass = control.get('confirm_password')?.value;
+    if (newPass && confirmPass && newPass !== confirmPass) {
+      return { passwordMismatch: true };
+    }
+    return null;
+  }
+
+  get passwordStrength(): { score: number; label: string; color: string } {
+    const pass = this.passwordForm.get('new_password')?.value || '';
+    if (!pass) {
+      return { score: 0, label: '', color: '' };
+    }
+    if (pass.length < 6) {
+      return { score: 1, label: 'Too short', color: 'bg-red-500' };
+    }
+
+    let score = 1;
+    if (pass.length >= 8) score++;
+    if (/[a-z]/.test(pass) && /[A-Z]/.test(pass)) score++;
+    if (/\d/.test(pass) && /[^a-zA-Z0-9]/.test(pass)) score++;
+
+    const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+    const colors = ['', 'bg-red-500', 'bg-amber-500', 'bg-blue-500', 'bg-emerald-600'];
+
+    return {
+      score,
+      label: labels[score],
+      color: colors[score],
+    };
+  }
 
   ngOnInit(): void {
     this.loadProfile();
@@ -104,5 +151,40 @@ export class ProfileComponent implements OnInit {
   dismissAlerts(): void {
     this.errorMessage.set(null);
     this.successMessage.set(null);
+  }
+
+  onChangePassword(): void {
+    if (this.passwordForm.invalid) {
+      this.passwordForm.markAllAsTouched();
+      return;
+    }
+
+    this.isChangingPassword.set(true);
+    this.passwordErrorMessage.set(null);
+    this.passwordSuccessMessage.set(null);
+
+    const { current_password, new_password } = this.passwordForm.value;
+    this.authService.changePassword({ current_password, new_password }).subscribe({
+      next: () => {
+        this.isChangingPassword.set(false);
+        this.passwordSuccessMessage.set(
+          'Password changed successfully! All sessions revoked. Redirecting to login...'
+        );
+        this.passwordForm.reset();
+        setTimeout(() => {
+          this.authService.logout();
+        }, 2000);
+      },
+      error: (err) => {
+        this.isChangingPassword.set(false);
+        const detail = err.error?.detail || err.message || 'Failed to change password.';
+        this.passwordErrorMessage.set(detail);
+      },
+    });
+  }
+
+  dismissPasswordAlerts(): void {
+    this.passwordErrorMessage.set(null);
+    this.passwordSuccessMessage.set(null);
   }
 }

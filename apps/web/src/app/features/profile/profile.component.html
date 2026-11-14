@@ -171,5 +171,119 @@
         </div>
       </form>
     </div>
+
+    <!-- Security & Credentials Card -->
+    <div class="mt-8 bg-white rounded-2xl border border-[#d1d1cd] shadow-[0_1px_3px_rgba(0,0,0,0.05)] overflow-hidden">
+      <div class="p-6 border-b border-[#e8e6e1]">
+        <h2 class="text-base font-semibold text-[#000000]">Security & Credentials</h2>
+        <p class="text-xs text-[#72706b] mt-0.5">Update your account password. Changing password will invalidate existing sessions on all other devices.</p>
+      </div>
+
+      <!-- Password Alerts -->
+      @if (passwordErrorMessage()) {
+        <div class="m-6 mb-0 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span>⚠️</span>
+            <span>{{ passwordErrorMessage() }}</span>
+          </div>
+          <button (click)="dismissPasswordAlerts()" class="text-red-500 hover:text-red-700 cursor-pointer font-bold px-1">✕</button>
+        </div>
+      }
+
+      @if (passwordSuccessMessage()) {
+        <div class="m-6 mb-0 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span>✓</span>
+            <span>{{ passwordSuccessMessage() }}</span>
+          </div>
+          <button (click)="dismissPasswordAlerts()" class="text-emerald-600 hover:text-emerald-800 cursor-pointer font-bold px-1">✕</button>
+        </div>
+      }
+
+      <form [formGroup]="passwordForm" (ngSubmit)="onChangePassword()" class="p-6 flex flex-col gap-4">
+        <!-- Current Password -->
+        <div>
+          <label for="current_password" class="block text-xs font-medium text-[#27251e] mb-1.5">
+            Current Password
+          </label>
+          <input
+            id="current_password"
+            type="password"
+            formControlName="current_password"
+            placeholder="Enter your current password"
+            class="w-full h-9 px-3 rounded-xl bg-white border border-[#d1d1cd] text-xs text-[#27251e] placeholder:text-[#92918b] focus:outline-none focus:border-[#27251e] transition-colors"
+          />
+          @if (passwordForm.get('current_password')?.touched && passwordForm.get('current_password')?.hasError('required')) {
+            <p class="text-[11px] text-red-600 mt-1">Current password is required.</p>
+          }
+        </div>
+
+        <!-- New Password -->
+        <div>
+          <label for="new_password" class="block text-xs font-medium text-[#27251e] mb-1.5">
+            New Password
+          </label>
+          <input
+            id="new_password"
+            type="password"
+            formControlName="new_password"
+            placeholder="At least 6 characters"
+            class="w-full h-9 px-3 rounded-xl bg-white border border-[#d1d1cd] text-xs text-[#27251e] placeholder:text-[#92918b] focus:outline-none focus:border-[#27251e] transition-colors"
+          />
+          @if (passwordForm.get('new_password')?.touched && passwordForm.get('new_password')?.hasError('minlength')) {
+            <p class="text-[11px] text-red-600 mt-1">New password must be at least 6 characters.</p>
+          }
+
+          <!-- 4-segment Password Strength Meter -->
+          @if (passwordForm.get('new_password')?.value) {
+            <div class="mt-2 flex flex-col gap-1">
+              <div class="flex items-center justify-between text-[11px] text-[#72706b]">
+                <span>Strength</span>
+                <span class="font-medium text-[#27251e]">{{ passwordStrength.label }}</span>
+              </div>
+              <div class="grid grid-cols-4 gap-1.5 h-1.5 w-full">
+                <div class="rounded-full transition-colors duration-200" [class]="passwordStrength.score >= 1 ? passwordStrength.color : 'bg-[#e8e6e1]'"></div>
+                <div class="rounded-full transition-colors duration-200" [class]="passwordStrength.score >= 2 ? passwordStrength.color : 'bg-[#e8e6e1]'"></div>
+                <div class="rounded-full transition-colors duration-200" [class]="passwordStrength.score >= 3 ? passwordStrength.color : 'bg-[#e8e6e1]'"></div>
+                <div class="rounded-full transition-colors duration-200" [class]="passwordStrength.score >= 4 ? passwordStrength.color : 'bg-[#e8e6e1]'"></div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Confirm Password -->
+        <div>
+          <label for="confirm_password" class="block text-xs font-medium text-[#27251e] mb-1.5">
+            Confirm New Password
+          </label>
+          <input
+            id="confirm_password"
+            type="password"
+            formControlName="confirm_password"
+            placeholder="Re-enter your new password"
+            class="w-full h-9 px-3 rounded-xl bg-white border border-[#d1d1cd] text-xs text-[#27251e] placeholder:text-[#92918b] focus:outline-none focus:border-[#27251e] transition-colors"
+          />
+          @if (passwordForm.touched && passwordForm.hasError('passwordMismatch')) {
+            <p class="text-[11px] text-red-600 mt-1">Passwords do not match.</p>
+          }
+        </div>
+
+        <!-- Password Submit Action -->
+        <div class="pt-2 flex justify-end">
+          <button
+            type="submit"
+            [disabled]="isChangingPassword() || passwordForm.invalid"
+            class="h-9 px-5 rounded-full bg-[#27251e] text-white text-xs font-medium flex items-center justify-center gap-2 hover:bg-[#000000] active:scale-[0.99] transition-all cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            @if (isChangingPassword()) {
+              <div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>Updating...</span>
+            } @else {
+              <span>Update Password</span>
+            }
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>

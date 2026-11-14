@@ -1,6 +1,6 @@
 ### Task 02: ProfileComponent Change Password Card with Strength Meter & Tests
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Add a "Security & Credentials" card to `ProfileComponent` in `apps/web/src/app/features/profile/` with a reactive form, confirmation equality validator, a 4-segment visual password strength meter, 2-second logout transition, and comprehensive component tests.
