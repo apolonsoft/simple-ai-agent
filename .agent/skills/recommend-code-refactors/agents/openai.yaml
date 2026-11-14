@@ -1,0 +1,6 @@
+interface:
+  display_name: "Recommend Code Refactors"
+  short_description: "Review code and propose evidence-backed refactors"
+  default_prompt: "Review the requested code and produce a prioritized refactor recommendation report without modifying project files."
+policy:
+  allow_implicit_invocation: true

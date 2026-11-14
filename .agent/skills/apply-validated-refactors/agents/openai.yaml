@@ -1,0 +1,6 @@
+interface:
+  display_name: "Apply Validated Refactors"
+  short_description: "Validate refactor proposals, then apply only sound changes"
+  default_prompt: "Validate the supplied refactor recommendations against the current repository, implement only valid items, and verify the resulting behavior."
+policy:
+  allow_implicit_invocation: false

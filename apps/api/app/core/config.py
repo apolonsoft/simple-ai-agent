@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:4200"]
 
+    # Mailpit / SMTP Email Configuration
+    SMTP_HOST: str = "localhost"
+    SMTP_PORT: int = 1025
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = "noreply@example.com"
+    SMTP_USE_TLS: bool = False
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
+    FRONTEND_RESET_URL: str = "http://localhost:4200/reset-password"
+
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env", "../../.env"), extra="ignore"
     )
