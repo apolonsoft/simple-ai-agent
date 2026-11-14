@@ -1,6 +1,6 @@
 ### Task 02: PasswordReset Database Model & Alembic Migration
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Define the `PasswordResetModel` SQLAlchemy model representing password reset tokens, establish the relationship with `UserModel`, export it in models `__init__.py`, and create an Alembic migration script to generate the `password_resets` table with proper foreign keys and indexes.

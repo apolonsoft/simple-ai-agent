@@ -10,6 +10,7 @@ from app.models.base import TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.chat import ChatSessionModel
+    from app.models.password_reset import PasswordResetModel
 
 
 class UserModel(Base, TimestampMixin):
@@ -28,6 +29,14 @@ class UserModel(Base, TimestampMixin):
     # Relationship to user's chat sessions
     chat_sessions: Mapped[list["ChatSessionModel"]] = relationship(
         "ChatSessionModel",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    # Relationship to password reset requests
+    password_resets: Mapped[list["PasswordResetModel"]] = relationship(
+        "PasswordResetModel",
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",
