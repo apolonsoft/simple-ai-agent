@@ -1,6 +1,6 @@
 ### Task 03: Reset Password Component & Route with Tests
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Create the standalone `ResetPasswordComponent` providing pre-flight token verification, single "New Password" input form (Ponytail minimal), and success state with "Sign In" button, register `/reset-password` in `app.routes.ts`, and add comprehensive unit tests.

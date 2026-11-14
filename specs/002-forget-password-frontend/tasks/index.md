@@ -4,4 +4,4 @@ Master roadmap listing status of all tasks for Feature `002-forget-password-fron
 
 - [x] [Task 01: Core Models & AuthService Methods with Tests](task-01.md)
 - [x] [Task 02: Forgot Password Component, Login Footer Link & Route](task-02.md)
-- [ ] [Task 03: Reset Password Component & Route with Tests](task-03.md)
+- [x] [Task 03: Reset Password Component & Route with Tests](task-03.md)

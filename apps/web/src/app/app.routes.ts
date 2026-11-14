@@ -24,6 +24,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'reset-password',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./features/auth/reset-password/reset-password.component').then(
+        (m) => m.ResetPasswordComponent
+      ),
+  },
+  {
     path: 'chat',
     canActivate: [authGuard],
     loadComponent: () =>
