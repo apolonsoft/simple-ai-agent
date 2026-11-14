@@ -3,6 +3,16 @@ export interface User {
   email: string;
   role: string;
   is_active: boolean;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface UserProfileUpdate {
+  full_name?: string | null;
+  bio?: string | null;
 }
 
 export interface TokenResponse {
