@@ -1,6 +1,6 @@
 ### Task 03: Asynchronous Email Service (SMTP / Mailpit)
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Implement an asynchronous email dispatch service (`EmailService`) that connects via SMTP to Mailpit (or configured production SMTP server) to send password reset emails with HTML and plain-text multipart templates.
