@@ -37,6 +37,8 @@ services:
     image: ollama/ollama:latest
     container_name: agent_ollama
     restart: unless-stopped
+    profiles:
+      - ollama
     ports:
       - "11434:11434"
     volumes:
