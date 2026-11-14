@@ -1,6 +1,6 @@
 ### Task 04: Password Reset Schemas & AuthService Logic
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Define the Pydantic request and response schemas for forgot-password and reset-password flows in `app/schemas/user.py`, and implement the password reset core methods in `app/services/auth_service.py`.

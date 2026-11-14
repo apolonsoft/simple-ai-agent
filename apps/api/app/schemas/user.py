@@ -27,3 +27,21 @@ class Token(BaseModel):
 class TokenPayload(BaseModel):
     sub: str | None = None  # user_id (UUID as string)
     role: str | None = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class VerifyResetTokenResponse(BaseModel):
+    valid: bool
+    email: EmailStr | None = None
+
+
+class MessageResponse(BaseModel):
+    message: str
