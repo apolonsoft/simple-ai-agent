@@ -172,4 +172,16 @@ describe('AuthService', () => {
     expect(req.request.body).toEqual({ token: 'sample-token-xyz', new_password: 'NewPass123!' });
     req.flush({ message: 'Password has been successfully reset.' });
   });
+
+  it('should call changePassword with current and new password', () => {
+    const payload = { current_password: 'OldPassword123', new_password: 'NewPassword123' };
+    service.changePassword(payload).subscribe((res) => {
+      expect(res.message).toBe('Password changed successfully.');
+    });
+
+    const req = httpTestingController.expectOne('/api/v1/auth/change-password');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush({ message: 'Password changed successfully.' });
+  });
 });

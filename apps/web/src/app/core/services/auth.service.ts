@@ -2,7 +2,7 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap, switchMap, of, catchError } from 'rxjs';
-import { User, TokenResponse, RegisterRequest, ResetPasswordRequest, VerifyResetTokenResponse, MessageResponse } from '../models/user.model';
+import { User, TokenResponse, RegisterRequest, ResetPasswordRequest, ChangePasswordRequest, VerifyResetTokenResponse, MessageResponse } from '../models/user.model';
 
 @Injectable({
   providedIn: 'root'
@@ -100,6 +100,10 @@ export class AuthService {
   resetPassword(token: string, newPassword: string): Observable<MessageResponse> {
     const payload: ResetPasswordRequest = { token, new_password: newPassword };
     return this.http.post<MessageResponse>('/api/v1/auth/reset-password', payload);
+  }
+
+  changePassword(req: ChangePasswordRequest): Observable<MessageResponse> {
+    return this.http.post<MessageResponse>('/api/v1/auth/change-password', req);
   }
 
   logout(): void {
