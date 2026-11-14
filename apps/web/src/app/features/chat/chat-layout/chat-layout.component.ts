@@ -1,13 +1,13 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChatSidebarComponent } from '../chat-sidebar/chat-sidebar.component';
 
 @Component({
   selector: 'app-chat-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, ChatSidebarComponent],
+  imports: [CommonModule, RouterOutlet, RouterLink, ChatSidebarComponent],
   templateUrl: './chat-layout.component.html',
   styleUrl: './chat-layout.component.scss',
 })

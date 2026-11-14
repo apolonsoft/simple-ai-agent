@@ -64,6 +64,25 @@ describe('ChatLayoutComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('.brand-title')?.textContent).toContain('Enterprise AI Agent');
     expect(compiled.querySelector('.user-email')?.textContent).toContain('lead_dev@example.com');
+    expect(compiled.querySelector('.user-chip')?.getAttribute('href')).toBe('/profile');
+  });
+
+  it('should render user avatar img if avatar_url is provided', () => {
+    currentUserSignal.set({
+      id: 'uuid-1',
+      email: 'lead_dev@example.com',
+      role: 'user',
+      is_active: true,
+      full_name: 'Lead Developer',
+      avatar_url: 'http://localhost:8333/avatars/lead.png',
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const avatarImg = compiled.querySelector('.user-chip img') as HTMLImageElement;
+    expect(avatarImg).toBeTruthy();
+    expect(avatarImg.getAttribute('src')).toBe('http://localhost:8333/avatars/lead.png');
+    expect(compiled.querySelector('.user-email')?.textContent).toContain('Lead Developer');
   });
 
   it('should call authService.logout on sign out button click', () => {

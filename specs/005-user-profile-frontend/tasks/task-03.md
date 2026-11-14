@@ -1,6 +1,6 @@
 ### Task 03: Top Navbar Integration & Avatar Thumbnail Rendering
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Update the top navigation bar in `apps/web/src/app/features/chat/chat-layout/chat-layout.component.html` so the user chip links directly to `/profile`, highlights on hover, and dynamically renders the user's uploaded avatar image thumbnail if available, falling back to the initial letter circle.
