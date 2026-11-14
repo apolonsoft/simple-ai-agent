@@ -1,6 +1,6 @@
 ### Task 04: UserService, UserController, API Routes & Tests
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Implement `UserService` and `UserController` for profile fetching, updates, and avatar uploads, expose endpoints under `/api/v1/users/me` (`GET`, `PATCH`, `POST /avatar`), and verify with automated pytest integration tests.
