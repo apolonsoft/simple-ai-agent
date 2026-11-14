@@ -26,6 +26,11 @@ class UserModel(Base, TimestampMixin):
     )  # "user" | "admin"
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # User Profile Information
+    full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    bio: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     # Relationship to user's chat sessions
     chat_sessions: Mapped[list["ChatSessionModel"]] = relationship(
         "ChatSessionModel",

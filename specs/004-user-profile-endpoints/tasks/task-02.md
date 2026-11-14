@@ -1,6 +1,6 @@
 ### Task 02: UserModel Profile Fields & Alembic Migration
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Add `full_name`, `avatar_url`, and `bio` columns to `UserModel` in `apps/api/app/models/user.py` and create an Alembic migration script to apply the changes to the PostgreSQL `users` table.
