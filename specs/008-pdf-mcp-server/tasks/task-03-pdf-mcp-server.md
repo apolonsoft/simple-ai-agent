@@ -1,6 +1,6 @@
 ### Task 03: Implement PDF MCP Server with create_pdf, merge_pdfs, and inspect_pdf
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Create the standalone FastMCP server `apps/api/app/mcp_servers/pdf_server.py` exposing three tools: `create_pdf`, `merge_pdfs`, and `inspect_pdf` using `fpdf2` and `pypdf`. The server supports SSE transport on port 8002 and ensures output directories are properly initialized and sanitized.

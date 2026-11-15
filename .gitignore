@@ -39,6 +39,7 @@ htmlcov/
 env/
 venv/
 ENV/
+outputs/pdfs
 
 # Node & Angular
 node_modules/
