@@ -1,6 +1,6 @@
 ### Task 02: Add fpdf2 and pypdf Dependencies and MCP PDF Settings
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Add `fpdf2` and `pypdf` dependencies to `apps/api/pyproject.toml` and configure `MCP_PDF_URL` and `MCP_PDF_DIR` in `apps/api/app/core/config.py`.
