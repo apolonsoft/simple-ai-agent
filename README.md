@@ -31,7 +31,7 @@ flowchart TD
 ### ⚡ Backend Architecture (FastAPI & AsyncPG)
 - **Database Connection Decoupling During Long Streams**: LLM inference takes 5–30 seconds. The streaming coordinator uses a 2-phase decoupled transaction pattern, releasing database connections back to the `asyncpg` pool during token generation. This guarantees zero connection starvation under heavy concurrency.
 - **Pluggable LLM Strategy Layer**: Switch seamlessly between cloud providers (**Google Gemini API**) and self-hosted on-premise engines (**Ollama**) using a unified `BaseLLMProvider` interface.
-- **Human-in-the-Loop Tool Calling & Dynamic Introspection Layer**: Built-in tool calling framework supporting dynamic schema generation from native Python functions (`function_to_tool_definition`), callable dispatch (`tool_execution`), autonomous agent loops, arithmetic `calculator` tools, and web search (`search_web` via Tavily). In the web platform, LLM tool call requests are safely held until explicitly approved or rejected by the user in the frontend, preventing unauthorized tool execution.
+- **Model Context Protocol (MCP 2.x) & Dynamic Tool Framework**: Integrated multi-server MCP architecture over SSE via `McpClientService`. Includes a dedicated pure-Python **PDF MCP Server** on port `8002` (`create_pdf`, `merge_pdfs`, `inspect_pdf` powered by `fpdf2` & `pypdf` with zero native C dependencies) and **Tavily Web Search** on port `8001`. Features dynamic schema introspection, arithmetic `calculator` tools, autonomous multi-turn loops, and Human-in-the-Loop approval cards where LLM tool requests are safely held until explicitly approved in the UI.
 - **Distributed Redis Rate Limiter**: ZSET-based sliding-window rate limiting per authenticated user or IP address with automatic `Retry-After` calculation and fail-open resilience.
 - **Redis Turn Context Caching**: Active conversation turns are cached in Redis with a 1-hour sliding TTL, completely eliminating PostgreSQL `SELECT` query contention during multi-turn exchanges.
 - **Context Memory Manager**: Sliding-window context pruner (`MemoryManager`) that automatically truncates older turns, preventing token context blowouts and runaway inference costs.
@@ -78,6 +78,7 @@ simple-ai-agent/
 │   │   │   ├── core/               # Redis singleton, rate limiter, security, settings
 │   │   │   ├── db/                 # AsyncPG engine, pool settings, sessionmaker
 │   │   │   ├── models/             # SQLAlchemy 2.0 ORM models (User, ChatSession, ChatMessage)
+│   │   │   ├── mcp_servers/        # FastMCP servers (PDF tools on :8002, Tavily search on :8001)
 │   │   │   ├── providers/          # Gemini & Ollama streaming adapters
 │   │   │   ├── services/           # ChatService, ChatStreamService, ChatCacheService, MemoryManager
 │   │   │   ├── tools/              # Dynamic tool introspection, calculator, search & execution registry
@@ -218,6 +219,17 @@ uvicorn app.main:app --reload --port 8000
 ```
 - API Documentation (Swagger UI): `http://localhost:8000/docs`
 - Health Check: `http://localhost:8000/health`
+
+#### g. (Optional) Start MCP Tool Servers
+To enable dynamic PDF document generation or external search tools for the agent:
+```bash
+# Terminal A: PDF Creation MCP Server (Port 8002)
+python -m app.mcp_servers.pdf_server
+
+# Terminal B: Tavily Web Search MCP Server (Port 8001)
+python -m app.mcp_servers.tavily_server
+```
+The FastAPI backend's `McpClientService` will automatically detect and pool tools from these running servers upon startup or query.
 
 ---
 

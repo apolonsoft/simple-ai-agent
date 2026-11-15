@@ -457,6 +457,31 @@ TOOL_DEFINITIONS = [
 ]
 ```
 
+#### Model Context Protocol (MCP 2.x) Multi-Server & PDF Architecture
+
+In addition to in-process local tools, the backend integrates with external/microservice tool servers through the **Model Context Protocol (MCP 2.x)** over Server-Sent Events (SSE) via `app.services.mcp_client_service.McpClientService`.
+
+```mermaid
+flowchart LR
+    Agent["ChatStreamService"] --> McpClient["McpClientService"]
+    McpClient -->|SSE :8001| TavilyMCP["Tavily Search Server\n(custom-tavily-search)"]
+    McpClient -->|SSE :8002| PdfMCP["PDF Server\n(custom-pdf-tools)"]
+    PdfMCP --> FPDF2["fpdf2\n(A4 Doc Generator)"]
+    PdfMCP --> PyPDF["pypdf\n(Merge & Inspection)"]
+    FPDF2 --> Output["outputs/pdfs/*.pdf"]
+```
+
+1. **`McpClientService` Aggregation & Routing**:
+   - Accepts a list of server URLs (e.g. `[MCP_TAVILY_URL, MCP_PDF_URL]`).
+   - Queries each server for available tools via `session.list_tools()`, translating them to OpenAI/Gemini compatible function call schemas.
+   - Maps each `tool_name -> server_url` so tool execution (`call_tool`) dynamically routes directly to the server owning that tool.
+
+2. **PDF MCP Server (`app/mcp_servers/pdf_server.py`)**:
+   - **`create_pdf(title, content, filename, author)`**: Formats raw text, Markdown (`#`, `##`, `###`, `- `, `* `, `**bold**`, `*italic*`), or HTML into clean documents with running headers and page numbers.
+   - **`merge_pdfs(file_paths, output_filename)`**: Appends multiple PDFs into a unified output using `pypdf.PdfWriter`.
+   - **`inspect_pdf(file_path)`**: Inspects total page count, metadata dictionary, and first-page text preview.
+   - Built entirely on pure-Python libraries (`fpdf2` & `pypdf`), eliminating native system dependencies like Cairo, Pango, or headless Chrome.
+
 #### Tool Approval & Follow-up Streaming Lifecycle
 ```mermaid
 sequenceDiagram
@@ -822,6 +847,6 @@ In this application:
 Total connection checkout duration per request is reduced from **10,000ms** to **10ms** ($\mathbf{1,000\times}$ efficiency multiplier).
 
 ### 2. Verified Test Suite Results
-- **Backend Tests (59/59 passing)**: Full verification of async sessions, rate limiting, LLM adapters, memory manager, dynamic schema introspection (`function_to_tool_definition`), Tavily web search (`search_web`), autonomous multi-turn tool loops, calculator tools, human approval/rejection lifecycle, SSE generators, and concurrent benchmarks.
+- **Backend Tests (89/89 passing)**: Full verification of async sessions, rate limiting, LLM adapters, memory manager, dynamic schema introspection (`function_to_tool_definition`), Tavily web search (`search_web`), PDF creation & manipulation MCP server (`create_pdf`, `merge_pdfs`, `inspect_pdf`), multi-server MCP aggregation, autonomous multi-turn tool loops, calculator tools, human approval/rejection lifecycle, SSE generators, and concurrent benchmarks.
 - **Frontend Tests (65/65 passing across 12 suites)**: Full verification of components, services, pipes, interceptors, tool call event streaming, approval cards, multi-language syntax highlighting, and route guards.
 - **Total**: **124/124 tests passing (100% pass rate)**.
