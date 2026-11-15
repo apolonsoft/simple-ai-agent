@@ -1,6 +1,6 @@
 ### Task 04: Implement Comprehensive Tests and Service Integration
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Write comprehensive pytest unit tests for the PDF MCP tools in `apps/api/app/tests/test_pdf_server.py`, add multi-server integration tests in `apps/api/app/tests/test_mcp_client.py`, and register `MCP_PDF_URL` in the default `McpClientService` client so the AI agent chat pipeline automatically discovers PDF tools.

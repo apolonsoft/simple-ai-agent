@@ -1,5 +1,6 @@
 # app/tests/test_mcp_client.py
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from app.services.mcp_client_service import McpClientService
@@ -68,3 +69,64 @@ async def test_mcp_client_schema_parsing():
         assert fn["name"] == "search_web"
         assert fn["description"] == "Search the web"
         assert fn["parameters"]["required"] == ["query"]
+
+
+@pytest.mark.asyncio
+async def test_mcp_client_multi_server_aggregation():
+    """Verify that McpClientService aggregates tools across multiple configured servers."""
+    client = McpClientService(
+        server_urls=["http://127.0.0.1:8001/sse", "http://127.0.0.1:8002/sse"]
+    )
+    assert len(client.server_urls) == 2
+
+    tool_tavily = MagicMock()
+    tool_tavily.name = "search_web"
+    tool_tavily.description = "Search web"
+    tool_tavily.input_schema = {"type": "object", "properties": {}}
+
+    tool_pdf = MagicMock()
+    tool_pdf.name = "create_pdf"
+    tool_pdf.description = "Create PDF"
+    tool_pdf.input_schema = {"type": "object", "properties": {}}
+
+    mock_session1 = AsyncMock()
+    mock_session1.initialize = AsyncMock()
+    mock_session1.list_tools = AsyncMock(
+        return_value=MagicMock(tools=[tool_tavily])
+    )
+
+    mock_session2 = AsyncMock()
+    mock_session2.initialize = AsyncMock()
+    mock_session2.list_tools = AsyncMock(
+        return_value=MagicMock(tools=[tool_pdf])
+    )
+
+    sessions = [mock_session1, mock_session2]
+
+    class MockContextManager:
+        async def __aenter__(self):
+            return sessions.pop(0)
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    class MockSseContextManager:
+        async def __aenter__(self):
+            return (MagicMock(), MagicMock())
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    with patch(
+        "app.services.mcp_client_service.sse_client",
+        return_value=MockSseContextManager(),
+    ), patch(
+        "app.services.mcp_client_service.ClientSession",
+        side_effect=lambda r, w: MockContextManager(),
+    ):
+        tools = await client.get_tool_definitions()
+        tool_names = [t["function"]["name"] for t in tools]
+        assert "search_web" in tool_names
+        assert "create_pdf" in tool_names
+        assert client.tool_to_server["search_web"] == "http://127.0.0.1:8001/sse"
+        assert client.tool_to_server["create_pdf"] == "http://127.0.0.1:8002/sse"

@@ -17,9 +17,14 @@ class McpClientService:
     ):
         target = server_urls or server_url
         if target is None:
-            self.server_urls = [
-                getattr(settings, "MCP_TAVILY_URL", "http://127.0.0.1:8001/sse")
-            ]
+            urls = []
+            tavily = getattr(settings, "MCP_TAVILY_URL", "http://127.0.0.1:8001/sse")
+            if tavily:
+                urls.append(tavily)
+            pdf = getattr(settings, "MCP_PDF_URL", "http://127.0.0.1:8002/sse")
+            if pdf:
+                urls.append(pdf)
+            self.server_urls = urls or ["http://127.0.0.1:8001/sse"]
         elif isinstance(target, str):
             self.server_urls = [target]
         else:
