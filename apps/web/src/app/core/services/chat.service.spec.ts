@@ -455,4 +455,17 @@ describe('ChatService', () => {
     expect(assistant.tool_calls?.[0].status).toBe('rejected');
     expect(service.isExecutingTool()).toBe(false);
   });
+
+  it('should fetch PDF blob from file endpoint', () => {
+    const mockBlob = new Blob(['%PDF-1.4 binary content'], { type: 'application/pdf' });
+    service.getPdfBlob('report.pdf').subscribe((blob) => {
+      expect(blob).toBeTruthy();
+      expect(blob.size).toBe(mockBlob.size);
+    });
+
+    const req = httpTestingController.expectOne('/api/v1/chats/files/pdf/report.pdf');
+    expect(req.request.method).toBe('GET');
+    expect(req.request.responseType).toBe('blob');
+    req.flush(mockBlob);
+  });
 });

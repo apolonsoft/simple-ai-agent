@@ -1,6 +1,6 @@
 ### Task 03: Frontend Angular Integration with Native PDF Viewer and Download
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Integrate PDF MCP server tool calling into the Angular chat frontend. Display dedicated `📄` PDF icons for `create_pdf`, `merge_pdfs`, and `inspect_pdf` in tool cards. When a PDF document has been created or merged, provide an interactive **View PDF** button (opening a clean modal dialog with a native browser PDF iframe) and a **Download** button. Add a quick prompt chip `📄 Generate PDF Report` in the empty conversation state.

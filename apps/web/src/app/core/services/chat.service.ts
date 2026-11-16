@@ -102,6 +102,12 @@ export class ChatService {
     );
   }
 
+  getPdfBlob(filename: string): Observable<Blob> {
+    return this.http.get(`/api/v1/chats/files/pdf/${filename}`, {
+      responseType: 'blob',
+    });
+  }
+
   async sendMessageStream(sessionId: string, prompt: string): Promise<void> {
     const trimmed = prompt.trim();
     if (!trimmed || this.isStreaming()) return;

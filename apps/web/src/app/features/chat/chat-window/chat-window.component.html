@@ -35,6 +35,9 @@
             <button class="quick-chip h-9 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs text-[#27251e] hover:bg-[#e8e6e1] transition-colors cursor-pointer text-left truncate shadow-[0_1px_2px_rgba(0,0,0,0.04)]" (click)="setQuickPrompt('Calculate 45 * 123 using the calculator tool.')">
               🧮 Calculator Tool Calling
             </button>
+            <button class="quick-chip h-9 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs text-[#27251e] hover:bg-[#e8e6e1] transition-colors cursor-pointer text-left truncate shadow-[0_1px_2px_rgba(0,0,0,0.04)]" (click)="setQuickPrompt('Generate a comprehensive PDF report about our architecture using the create_pdf tool.')">
+              📄 Generate PDF Report
+            </button>
             <button class="quick-chip h-9 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs text-[#27251e] hover:bg-[#e8e6e1] transition-colors cursor-pointer text-left truncate shadow-[0_1px_2px_rgba(0,0,0,0.04)]" (click)="setQuickPrompt('Review the async sliding-window rate limiter in Redis.')">
               ⚡ Redis Rate Limiter Deep Dive
             </button>
@@ -92,7 +95,7 @@
                           <div class="tool-call-card bg-[#faf8f5] border border-[#d1d1cd] rounded-2xl p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]" [class]="'status-' + (tc.status || 'pending')">
                             <div class="tool-call-header flex items-center justify-between pb-2 border-b border-[#d1d1cd]">
                               <div class="tool-title flex items-center gap-1.5 text-xs text-[#27251e]">
-                                <span class="tool-icon text-sm">{{ tc.tool === 'search_web' ? '🌐' : '🧮' }}</span>
+                                <span class="tool-icon text-sm">{{ tc.tool === 'search_web' ? '🌐' : isPdfTool(tc.tool) ? '📄' : '🧮' }}</span>
                                 <span class="tool-name">Tool: <strong class="font-mono text-[#000000]">{{ tc.tool }}</strong></span>
                               </div>
                               <span class="tool-badge text-[11px] font-medium px-2 py-0.5 rounded-full" [class]="'badge-' + (tc.status || 'pending')"
@@ -122,9 +125,31 @@
                               </div>
 
                               @if (tc.status === 'executed' && tc.result !== undefined) {
-                                <div class="tool-result-section mt-2 pt-2 border-t border-[#d1d1cd] flex items-center gap-2">
-                                  <span class="tool-section-label text-[10px] font-medium uppercase tracking-wider text-[#92918b]">Result:</span>
-                                  <span class="tool-result-value font-mono text-xs text-[#016a71] font-medium bg-white px-2 py-0.5 rounded border border-[#d1d1cd]">{{ tc.result }}</span>
+                                <div class="tool-result-section mt-2 pt-2 border-t border-[#d1d1cd] flex flex-col gap-2">
+                                  <div class="flex items-center gap-2">
+                                    <span class="tool-section-label text-[10px] font-medium uppercase tracking-wider text-[#92918b]">Result:</span>
+                                    <span class="tool-result-value font-mono text-xs text-[#016a71] font-medium bg-white px-2 py-0.5 rounded border border-[#d1d1cd] truncate">{{ tc.result }}</span>
+                                  </div>
+                                  @if (extractPdfFilename(tc.result); as pdfFile) {
+                                    <div class="pdf-actions flex items-center gap-2 pt-0.5">
+                                      <button
+                                        type="button"
+                                        class="btn-view-pdf h-7 px-3 rounded-full bg-[#016a71] text-white text-xs font-medium hover:bg-[#015257] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                                        (click)="openPdfViewer(pdfFile)"
+                                      >
+                                        <span>👁️</span>
+                                        <span>View PDF</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        class="btn-download-pdf h-7 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs font-medium text-[#27251e] hover:bg-[#e8e6e1] flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                                        (click)="downloadPdf(pdfFile)"
+                                      >
+                                        <span>⬇️</span>
+                                        <span>Download</span>
+                                      </button>
+                                    </div>
+                                  }
                                 </div>
                               }
 
@@ -251,6 +276,43 @@
         </div>
         <h2 class="text-base font-medium text-[#000000] mb-1">Select or create a conversation</h2>
         <p class="text-xs text-[#72706b] leading-relaxed">Choose an existing thread from the sidebar or click "+ New Chat" to start fresh.</p>
+      </div>
+    </div>
+  }
+
+  <!-- PDF Native Preview Modal -->
+  @if (previewPdfUrl()) {
+    <div class="pdf-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6" (click)="closePdfViewer()">
+      <div class="pdf-modal-card bg-white rounded-2xl max-w-4xl w-full h-[85vh] flex flex-col shadow-2xl border border-[#d1d1cd] overflow-hidden" (click)="$event.stopPropagation()">
+        <div class="pdf-modal-header flex items-center justify-between px-4 py-3 border-b border-[#d1d1cd] bg-[#faf8f5]">
+          <div class="flex items-center gap-2 text-sm font-medium text-[#27251e]">
+            <span>📄</span>
+            <span class="font-mono text-xs">{{ previewFilename() }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            @if (previewFilename(); as fname) {
+              <button
+                type="button"
+                class="btn-modal-download h-7 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs font-medium text-[#27251e] hover:bg-[#e8e6e1] flex items-center gap-1 transition-colors cursor-pointer"
+                (click)="downloadPdf(fname)"
+              >
+                <span>⬇️</span>
+                <span>Download</span>
+              </button>
+            }
+            <button
+              type="button"
+              class="close-modal-btn w-7 h-7 rounded-full bg-white border border-[#d1d1cd] text-xs font-medium text-[#72706b] hover:bg-[#e8e6e1] hover:text-[#27251e] flex items-center justify-center transition-colors cursor-pointer"
+              (click)="closePdfViewer()"
+              aria-label="Close PDF viewer"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        <div class="pdf-modal-body flex-1 w-full h-full bg-[#f0eeea] overflow-hidden">
+          <iframe [src]="previewPdfUrl()" class="w-full h-full border-0" title="PDF Document Viewer"></iframe>
+        </div>
       </div>
     </div>
   }

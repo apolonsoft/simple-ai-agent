@@ -2,6 +2,7 @@ import {
   Component,
   inject,
   input,
+  signal,
   effect,
   ViewChild,
   ElementRef,
@@ -10,6 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ChatMessage, ToolCall } from '../../../core/models/chat.model';
 import { ChatService } from '../../../core/services/chat.service';
 import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
@@ -23,6 +25,7 @@ import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
 })
 export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   private readonly chatService = inject(ChatService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   @ViewChild('messagesContainer') private messagesContainer?: ElementRef<HTMLDivElement>;
   @ViewChild('scrollAnchor') private scrollAnchor?: ElementRef<HTMLDivElement>;
@@ -36,6 +39,10 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   readonly isStreaming = this.chatService.isStreaming;
   readonly isExecutingTool = this.chatService.isExecutingTool;
   readonly streamError = this.chatService.streamError;
+
+  readonly previewPdfUrl = signal<SafeResourceUrl | null>(null);
+  readonly previewFilename = signal<string | null>(null);
+  private rawBlobUrl: string | null = null;
 
   promptText: string = '';
   private observer?: MutationObserver;
@@ -60,6 +67,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.observer?.disconnect();
+    this.closePdfViewer();
   }
 
   private setupScrollObserver(): void {
@@ -123,6 +131,82 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
       key,
       value: typeof val === 'object' ? JSON.stringify(val) : String(val),
     }));
+  }
+
+  isPdfTool(toolName: string): boolean {
+    return ['create_pdf', 'merge_pdfs', 'inspect_pdf'].includes(toolName);
+  }
+
+  extractPdfFilename(result: any): string | null {
+    if (!result) return null;
+    let data: any = result;
+    if (typeof result === 'string') {
+      try {
+        data = JSON.parse(result);
+      } catch {
+        const match = result.match(/[\w\-.]+\.pdf/i);
+        return match ? match[0] : null;
+      }
+    }
+    if (typeof data === 'object' && data !== null) {
+      if (typeof data.filename === 'string' && data.filename.toLowerCase().endsWith('.pdf')) {
+        return data.filename;
+      }
+      if (typeof data.file_path === 'string' && data.file_path.toLowerCase().endsWith('.pdf')) {
+        const parts = data.file_path.split(/[/\\]/);
+        return parts[parts.length - 1];
+      }
+      if (typeof data.merged_file_path === 'string' && data.merged_file_path.toLowerCase().endsWith('.pdf')) {
+        const parts = data.merged_file_path.split(/[/\\]/);
+        return parts[parts.length - 1];
+      }
+    }
+    return null;
+  }
+
+  openPdfViewer(filename: string): void {
+    this.chatService.getPdfBlob(filename).subscribe({
+      next: (blob) => {
+        if (this.rawBlobUrl) {
+          URL.revokeObjectURL(this.rawBlobUrl);
+        }
+        this.rawBlobUrl = URL.createObjectURL(blob);
+        this.previewPdfUrl.set(
+          this.sanitizer.bypassSecurityTrustResourceUrl(this.rawBlobUrl)
+        );
+        this.previewFilename.set(filename);
+      },
+      error: (err) => {
+        console.error('Failed to load PDF for preview', err);
+      },
+    });
+  }
+
+  closePdfViewer(): void {
+    if (this.rawBlobUrl) {
+      URL.revokeObjectURL(this.rawBlobUrl);
+      this.rawBlobUrl = null;
+    }
+    this.previewPdfUrl.set(null);
+    this.previewFilename.set(null);
+  }
+
+  downloadPdf(filename: string): void {
+    this.chatService.getPdfBlob(filename).subscribe({
+      next: (blob) => {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      },
+      error: (err) => {
+        console.error('Failed to download PDF', err);
+      },
+    });
   }
 
   onMessagesClick(event: MouseEvent): void {

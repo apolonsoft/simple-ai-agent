@@ -1,5 +1,6 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { of } from 'rxjs';
 import { ChatWindowComponent } from './chat-window.component';
 import { ChatService } from '../../../core/services/chat.service';
 import { ChatSession, ChatMessage } from '../../../core/models/chat.model';
@@ -26,6 +27,7 @@ describe('ChatWindowComponent', () => {
     sendMessageStream: ReturnType<typeof vi.fn>;
     approveToolCall: ReturnType<typeof vi.fn>;
     abortStream: ReturnType<typeof vi.fn>;
+    getPdfBlob: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -47,6 +49,7 @@ describe('ChatWindowComponent', () => {
       sendMessageStream: vi.fn().mockResolvedValue(undefined),
       approveToolCall: vi.fn().mockResolvedValue(undefined),
       abortStream: vi.fn(),
+      getPdfBlob: vi.fn().mockReturnValue(of(new Blob(['%PDF-1.4 test data'], { type: 'application/pdf' }))),
     };
 
     await TestBed.configureTestingModule({
@@ -234,5 +237,87 @@ describe('ChatWindowComponent', () => {
     expect(toolCard?.textContent).toContain('Executed');
     expect(toolCard?.textContent).toContain('40');
     expect(toolCard?.querySelector('.btn-approve')).toBeFalsy();
+  });
+
+  it('should render PDF icon 📄 and View/Download buttons for executed PDF tool call', () => {
+    fixture.componentRef.setInput('sessionId', 'session-42');
+    messagesSignal.set([
+      {
+        id: 'msg-tool-pdf',
+        role: 'assistant',
+        content: 'I generated the requested PDF report.',
+        tool_calls: [
+          {
+            id: 'call-pdf-1',
+            tool: 'create_pdf',
+            arguments: { title: 'Architecture Report', content: 'Details here...' },
+            status: 'executed',
+            result: JSON.stringify({
+              status: 'success',
+              filename: 'architecture_report.pdf',
+              file_path: '/path/to/architecture_report.pdf',
+              page_count: 2,
+            }),
+          },
+        ],
+      },
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const toolCard = compiled.querySelector('.tool-call-card');
+    expect(toolCard).toBeTruthy();
+    expect(toolCard?.querySelector('.tool-icon')?.textContent).toBe('📄');
+
+    const viewBtn = toolCard?.querySelector('.btn-view-pdf') as HTMLButtonElement;
+    const downloadBtn = toolCard?.querySelector('.btn-download-pdf') as HTMLButtonElement;
+    expect(viewBtn).toBeTruthy();
+    expect(downloadBtn).toBeTruthy();
+
+    // Click View PDF
+    viewBtn.click();
+    expect(mockChatService.getPdfBlob).toHaveBeenCalledWith('architecture_report.pdf');
+
+    fixture.detectChanges();
+    const modal = compiled.querySelector('.pdf-modal-backdrop');
+    expect(modal).toBeTruthy();
+    expect(modal?.textContent).toContain('architecture_report.pdf');
+
+    // Close Modal
+    const closeBtn = modal?.querySelector('.close-modal-btn') as HTMLButtonElement;
+    closeBtn.click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('.pdf-modal-backdrop')).toBeFalsy();
+  });
+
+  it('should trigger download when Download button is clicked', () => {
+    fixture.componentRef.setInput('sessionId', 'session-42');
+    messagesSignal.set([
+      {
+        id: 'msg-tool-pdf-2',
+        role: 'assistant',
+        content: 'Report ready.',
+        tool_calls: [
+          {
+            id: 'call-pdf-2',
+            tool: 'merge_pdfs',
+            arguments: { file_paths: ['a.pdf', 'b.pdf'] },
+            status: 'executed',
+            result: JSON.stringify({
+              status: 'success',
+              filename: 'merged_doc.pdf',
+            }),
+          },
+        ],
+      },
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const downloadBtn = compiled.querySelector('.btn-download-pdf') as HTMLButtonElement;
+    expect(downloadBtn).toBeTruthy();
+
+    downloadBtn.click();
+    expect(mockChatService.getPdfBlob).toHaveBeenCalledWith('merged_doc.pdf');
   });
 });
