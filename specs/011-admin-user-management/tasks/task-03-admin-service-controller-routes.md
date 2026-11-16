@@ -1,6 +1,6 @@
 ### Task 03: Admin Service, Controller & Routes
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Implement `AdminService`, `AdminController`, and `admin_routes` providing the REST endpoints for listing users with pagination and search, retrieving detailed user info, banning users with Redis token revocation, unbanning users, and updating roles, enforced by administrative guardrails.
