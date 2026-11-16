@@ -37,7 +37,9 @@ async def update_my_profile(
 
 @router.post("/me/avatar", response_model=UserProfileResponse)
 async def upload_my_avatar(
-    file: UploadFile = File(..., description="Avatar image (JPEG, PNG, or WebP <= 5MB)"),
+    file: UploadFile = File(
+        ..., description="Avatar image (JPEG, PNG, or WebP <= 5MB)"
+    ),
     current_user: UserModel = Depends(get_current_user),
     controller: UserController = Depends(get_user_controller),
 ) -> UserProfileResponse:

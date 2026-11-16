@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from dotenv import load_dotenv
@@ -39,7 +39,7 @@ def _sanitize_filename(name: str | None, prefix: str = "doc") -> str:
         if not base.lower().endswith(".pdf"):
             base += ".pdf"
         return base
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     rand_suffix = uuid.uuid4().hex[:6]
     return f"{prefix}_{timestamp}_{rand_suffix}.pdf"
 

@@ -6,7 +6,9 @@ import pytest
 from fastapi import status
 
 
-async def get_auth_token(client: httpx.AsyncClient, email: str = "profile@example.com") -> str:
+async def get_auth_token(
+    client: httpx.AsyncClient, email: str = "profile@example.com"
+) -> str:
     """Helper to register and login a user, returning a valid Bearer token."""
     await client.post(
         "/api/v1/auth/register",
@@ -55,7 +57,9 @@ async def test_update_profile_success(client: httpx.AsyncClient):
         "full_name": "Bob Builder",
         "bio": "Building robust scalable systems.",
     }
-    patch_res = await client.patch("/api/v1/users/me", json=update_payload, headers=headers)
+    patch_res = await client.patch(
+        "/api/v1/users/me", json=update_payload, headers=headers
+    )
     assert patch_res.status_code == status.HTTP_200_OK
     data = patch_res.json()
     assert data["full_name"] == "Bob Builder"

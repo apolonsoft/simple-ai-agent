@@ -38,9 +38,7 @@ async def test_mcp_client_schema_parsing():
 
     mock_session = AsyncMock()
     mock_session.initialize = AsyncMock()
-    mock_session.list_tools = AsyncMock(
-        return_value=MagicMock(tools=[mock_tool])
-    )
+    mock_session.list_tools = AsyncMock(return_value=MagicMock(tools=[mock_tool]))
 
     class MockContextManager:
         async def __aenter__(self):
@@ -56,12 +54,15 @@ async def test_mcp_client_schema_parsing():
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
 
-    with patch(
-        "app.services.mcp_client_service.sse_client",
-        return_value=MockSseContextManager(),
-    ), patch(
-        "app.services.mcp_client_service.ClientSession",
-        return_value=MockContextManager(),
+    with (
+        patch(
+            "app.services.mcp_client_service.sse_client",
+            return_value=MockSseContextManager(),
+        ),
+        patch(
+            "app.services.mcp_client_service.ClientSession",
+            return_value=MockContextManager(),
+        ),
     ):
         tools = await client.get_tool_definitions()
         assert len(tools) == 1
@@ -91,15 +92,11 @@ async def test_mcp_client_multi_server_aggregation():
 
     mock_session1 = AsyncMock()
     mock_session1.initialize = AsyncMock()
-    mock_session1.list_tools = AsyncMock(
-        return_value=MagicMock(tools=[tool_tavily])
-    )
+    mock_session1.list_tools = AsyncMock(return_value=MagicMock(tools=[tool_tavily]))
 
     mock_session2 = AsyncMock()
     mock_session2.initialize = AsyncMock()
-    mock_session2.list_tools = AsyncMock(
-        return_value=MagicMock(tools=[tool_pdf])
-    )
+    mock_session2.list_tools = AsyncMock(return_value=MagicMock(tools=[tool_pdf]))
 
     sessions = [mock_session1, mock_session2]
 
@@ -117,12 +114,15 @@ async def test_mcp_client_multi_server_aggregation():
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
 
-    with patch(
-        "app.services.mcp_client_service.sse_client",
-        return_value=MockSseContextManager(),
-    ), patch(
-        "app.services.mcp_client_service.ClientSession",
-        side_effect=lambda r, w: MockContextManager(),
+    with (
+        patch(
+            "app.services.mcp_client_service.sse_client",
+            return_value=MockSseContextManager(),
+        ),
+        patch(
+            "app.services.mcp_client_service.ClientSession",
+            side_effect=lambda r, w: MockContextManager(),
+        ),
     ):
         tools = await client.get_tool_definitions()
         tool_names = [t["function"]["name"] for t in tools]

@@ -32,4 +32,6 @@ class PasswordResetModel(Base, TimestampMixin):
     )
 
     # Relationship back to the user
-    user: Mapped["UserModel"] = relationship("UserModel", back_populates="password_resets")
+    user: Mapped["UserModel"] = relationship(
+        "UserModel", back_populates="password_resets"
+    )

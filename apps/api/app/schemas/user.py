@@ -41,7 +41,9 @@ class ResetPasswordRequest(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str = Field(min_length=6, description="New password, minimum 6 characters")
+    new_password: str = Field(
+        min_length=6, description="New password, minimum 6 characters"
+    )
 
 
 class VerifyResetTokenResponse(BaseModel):

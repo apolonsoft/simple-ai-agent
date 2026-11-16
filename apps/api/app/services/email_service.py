@@ -101,5 +101,7 @@ class EmailService:
             logger.info("Password reset email sent to %s", recipient_email)
             return True
         except Exception as exc:
-            logger.error("Failed to send password reset email to %s: %s", recipient_email, exc)
+            logger.error(
+                "Failed to send password reset email to %s: %s", recipient_email, exc
+            )
             return False

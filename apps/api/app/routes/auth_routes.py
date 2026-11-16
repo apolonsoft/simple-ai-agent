@@ -73,7 +73,9 @@ async def admin_dashboard(admin_user: UserModel = Depends(require_role("admin"))
     status_code=status.HTTP_200_OK,
     dependencies=[
         Depends(
-            RateLimiter(max_requests=5, window_seconds=900, scope="auth:forgot-password")
+            RateLimiter(
+                max_requests=5, window_seconds=900, scope="auth:forgot-password"
+            )
         )
     ],
 )
@@ -129,4 +131,6 @@ async def change_password(
     controller: AuthController = Depends(get_auth_controller),
 ) -> MessageResponse:
     """Protected endpoint: Updates password for authenticated user and revokes concurrent sessions."""
-    return await controller.change_password(user=current_user, request_data=request_data)
+    return await controller.change_password(
+        user=current_user, request_data=request_data
+    )

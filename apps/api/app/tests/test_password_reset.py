@@ -34,13 +34,16 @@ async def test_forgot_password_success_sends_email(client: httpx.AsyncClient):
 
         # Verify email was dispatched with recipient and generated token
         mock_send_email.assert_awaited_once()
+        assert mock_send_email.await_args is not None
         recipient_arg, token_arg = mock_send_email.await_args[0]
         assert recipient_arg == "forgot@example.com"
         assert len(token_arg) > 20
 
 
 @pytest.mark.asyncio
-async def test_forgot_password_nonexistent_user_anti_enumeration(client: httpx.AsyncClient):
+async def test_forgot_password_nonexistent_user_anti_enumeration(
+    client: httpx.AsyncClient,
+):
     with patch(
         "app.services.email_service.EmailService.send_password_reset_email",
         new_callable=AsyncMock,
@@ -74,6 +77,7 @@ async def test_verify_reset_token_valid(client: httpx.AsyncClient):
             "/api/v1/auth/forgot-password",
             json={"email": "verify@example.com"},
         )
+        assert mock_send_email.await_args is not None
         token_captured = mock_send_email.await_args[0][1]
 
     # Verify the captured token
@@ -88,7 +92,9 @@ async def test_verify_reset_token_valid(client: httpx.AsyncClient):
 
 @pytest.mark.asyncio
 async def test_verify_reset_token_invalid(client: httpx.AsyncClient):
-    response = await client.get("/api/v1/auth/verify-reset-token?token=invalid_dummy_token")
+    response = await client.get(
+        "/api/v1/auth/verify-reset-token?token=invalid_dummy_token"
+    )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Invalid or expired" in response.json()["detail"]
 
@@ -109,6 +115,7 @@ async def test_verify_reset_token_expired(client: httpx.AsyncClient, db_session)
             "/api/v1/auth/forgot-password",
             json={"email": "expired@example.com"},
         )
+        assert mock_send_email.await_args is not None
         token_captured = mock_send_email.await_args[0][1]
 
     # Manually expire the token in the database
@@ -147,6 +154,7 @@ async def test_reset_password_success_and_login_flow(client: httpx.AsyncClient):
             "/api/v1/auth/forgot-password",
             json={"email": "resetflow@example.com"},
         )
+        assert mock_send_email.await_args is not None
         token_captured = mock_send_email.await_args[0][1]
 
     # 3. Reset Password
@@ -189,6 +197,7 @@ async def test_reset_password_token_single_use(client: httpx.AsyncClient):
             "/api/v1/auth/forgot-password",
             json={"email": "singleuse@example.com"},
         )
+        assert mock_send_email.await_args is not None
         token_captured = mock_send_email.await_args[0][1]
 
     # First reset succeeds

@@ -54,11 +54,17 @@ class StorageService:
     ) -> str:
         """Uploads a file stream asynchronously to S3/SeaweedFS and returns its public URL."""
         # Sanitize extension and create unique object key
-        extension = original_filename.rsplit(".", 1)[-1].lower() if "." in original_filename else "bin"
+        extension = (
+            original_filename.rsplit(".", 1)[-1].lower()
+            if "." in original_filename
+            else "bin"
+        )
         unique_key = f"{uuid.uuid4().hex}.{extension}"
 
         try:
-            await asyncio.to_thread(self._sync_upload, file_bytes, unique_key, content_type)
+            await asyncio.to_thread(
+                self._sync_upload, file_bytes, unique_key, content_type
+            )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -36,7 +36,10 @@ class UserService:
 
     async def upload_avatar(self, user: UserModel, file: UploadFile) -> UserModel:
         """Validates and uploads an avatar file to S3 storage, updating user.avatar_url."""
-        if not file.content_type or file.content_type.lower() not in ALLOWED_IMAGE_TYPES:
+        if (
+            not file.content_type
+            or file.content_type.lower() not in ALLOWED_IMAGE_TYPES
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid image format. Allowed formats: image/jpeg, image/png, image/webp",

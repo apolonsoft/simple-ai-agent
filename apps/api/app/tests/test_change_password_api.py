@@ -24,7 +24,9 @@ class AsyncFakeRedis:
         pass
 
 
-async def get_auth_token(client: httpx.AsyncClient, email: str, password: str = "oldpass123") -> str:
+async def get_auth_token(
+    client: httpx.AsyncClient, email: str, password: str = "oldpass123"
+) -> str:
     """Helper to register and login a user, returning a valid Bearer token."""
     await client.post(
         "/api/v1/auth/register",
@@ -48,7 +50,9 @@ async def test_change_password_unauthorized(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_change_password_success_and_login_with_new_password(client: httpx.AsyncClient):
+async def test_change_password_success_and_login_with_new_password(
+    client: httpx.AsyncClient,
+):
     """Valid change-password updates database credentials and allows logging in with new password."""
     token = await get_auth_token(client, "change_pw_user@example.com", "oldpassword123")
     headers = {"Authorization": f"Bearer {token}"}
@@ -82,10 +86,19 @@ async def test_change_password_revokes_old_session(client: httpx.AsyncClient):
     """Changing password must revoke the active token so subsequent requests fail with 401."""
     fake_redis = AsyncFakeRedis()
 
-    with patch("app.core.dependencies.get_redis_client", new=AsyncMock(return_value=fake_redis)), \
-         patch("app.services.auth_service.get_redis_client", new=AsyncMock(return_value=fake_redis)):
-
-        token = await get_auth_token(client, "revoked_pw_user@example.com", "currentpass123")
+    with (
+        patch(
+            "app.core.dependencies.get_redis_client",
+            new=AsyncMock(return_value=fake_redis),
+        ),
+        patch(
+            "app.services.auth_service.get_redis_client",
+            new=AsyncMock(return_value=fake_redis),
+        ),
+    ):
+        token = await get_auth_token(
+            client, "revoked_pw_user@example.com", "currentpass123"
+        )
         headers = {"Authorization": f"Bearer {token}"}
 
         # Token works initially
@@ -98,7 +111,10 @@ async def test_change_password_revokes_old_session(client: httpx.AsyncClient):
         # Perform password change
         change_res = await client.post(
             "/api/v1/auth/change-password",
-            json={"current_password": "currentpass123", "new_password": "brandnewpass123"},
+            json={
+                "current_password": "currentpass123",
+                "new_password": "brandnewpass123",
+            },
             headers=headers,
         )
         assert change_res.status_code == status.HTTP_200_OK
@@ -117,7 +133,10 @@ async def test_change_password_incorrect_current_password(client: httpx.AsyncCli
 
     res = await client.post(
         "/api/v1/auth/change-password",
-        json={"current_password": "incorrectpassword", "new_password": "newpassword123"},
+        json={
+            "current_password": "incorrectpassword",
+            "new_password": "newpassword123",
+        },
         headers=headers,
     )
     assert res.status_code == status.HTTP_400_BAD_REQUEST
@@ -156,7 +175,9 @@ async def test_change_password_length_validation(client: httpx.AsyncClient):
 @pytest.mark.asyncio
 async def test_change_password_rate_limiting(client: httpx.AsyncClient):
     """Exceeding 5 change-password requests within 60 seconds triggers 429 Too Many Requests."""
-    token = await get_auth_token(client, "ratelimit_pw_user@example.com", "mypassword123")
+    token = await get_auth_token(
+        client, "ratelimit_pw_user@example.com", "mypassword123"
+    )
     headers = {"Authorization": f"Bearer {token}"}
 
     fake_redis = InMemoryRedis()
@@ -165,7 +186,10 @@ async def test_change_password_rate_limiting(client: httpx.AsyncClient):
         for _ in range(5):
             res = await client.post(
                 "/api/v1/auth/change-password",
-                json={"current_password": "wrongpassword", "new_password": "newpassword123"},
+                json={
+                    "current_password": "wrongpassword",
+                    "new_password": "newpassword123",
+                },
                 headers=headers,
             )
             assert res.status_code == status.HTTP_400_BAD_REQUEST
@@ -173,7 +197,10 @@ async def test_change_password_rate_limiting(client: httpx.AsyncClient):
         # 6th request triggers 429
         blocked = await client.post(
             "/api/v1/auth/change-password",
-            json={"current_password": "wrongpassword", "new_password": "newpassword123"},
+            json={
+                "current_password": "wrongpassword",
+                "new_password": "newpassword123",
+            },
             headers=headers,
         )
         assert blocked.status_code == status.HTTP_429_TOO_MANY_REQUESTS

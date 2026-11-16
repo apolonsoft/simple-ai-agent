@@ -91,17 +91,15 @@ class McpClientService:
                 await session.initialize()
                 result = await session.call_tool(tool_name, arguments)
 
-                output_parts = []
+                output_parts: list[str] = []
                 for content in result.content:
                     if hasattr(content, "text"):
-                        output_parts.append(content.text)
+                        output_parts.append(str(content.text))
                     else:
                         output_parts.append(str(content))
 
                 return (
-                    "\n\n".join(output_parts)
-                    if output_parts
-                    else "No output returned."
+                    "\n\n".join(output_parts) if output_parts else "No output returned."
                 )
         except Exception as exc:
             logger.error(
