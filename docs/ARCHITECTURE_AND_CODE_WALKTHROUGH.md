@@ -477,10 +477,21 @@ flowchart LR
    - Maps each `tool_name -> server_url` so tool execution (`call_tool`) dynamically routes directly to the server owning that tool.
 
 2. **PDF MCP Server (`app/mcp_servers/pdf_server.py`)**:
-   - **`create_pdf(title, content, filename, author)`**: Formats raw text, Markdown (`#`, `##`, `###`, `- `, `* `, `**bold**`, `*italic*`), or HTML into clean documents with running headers and page numbers.
-   - **`merge_pdfs(file_paths, output_filename)`**: Appends multiple PDFs into a unified output using `pypdf.PdfWriter`.
+   - **`create_pdf(title, content, filename, author)`**: Formats raw text, Markdown (`#`, `##`, `###`, `- `, `* `, `**bold**`, `*italic*`), or HTML into clean documents with running headers and page numbers. Returns `file_path`, `filename`, and `download_url`.
+   - **`merge_pdfs(file_paths, output_filename)`**: Appends multiple PDFs into a unified output using `pypdf.PdfWriter`. Returns `merged_file_path`, `filename`, and `download_url`.
    - **`inspect_pdf(file_path)`**: Inspects total page count, metadata dictionary, and first-page text preview.
    - Built entirely on pure-Python libraries (`fpdf2` & `pypdf`), eliminating native system dependencies like Cairo, Pango, or headless Chrome.
+
+3. **Secure PDF File Delivery Endpoint (`GET /api/v1/chats/files/pdf/{filename}`)**:
+   - Protected endpoint requiring user authentication via `Authorization: Bearer <token>` or `?token=<token>` query parameter.
+   - Enforces strict canonical path verification (`os.path.commonpath`) to prevent directory traversal attacks.
+   - Streams PDF content via Starlette `FileResponse` with `application/pdf` MIME type.
+
+4. **Client-Side PDF Canvas Viewer & Annotation Suite (`PdfViewerModalComponent`)**:
+   - Powered by `pdfjs-dist` rendering directly to an HTML5 `<canvas>` with `window.devicePixelRatio` scaling.
+   - Guarantees universal inline document rendering across mobile webviews (iOS Safari, Android Chrome) without forced download prompts.
+   - Stacked canvas architecture: base canvas renders the PDF page, transparent overlay canvas captures freehand Pen and translucent Highlighter strokes.
+   - Floating toolbar controls: Page navigation (Prev/Next/Keyboard shortcuts), Zoom (In/Out/Fit Width/Reset), 5-color palette, and per-page stroke persistence across zoom adjustments and page flips.
 
 #### Tool Approval & Follow-up Streaming Lifecycle
 ```mermaid
@@ -847,6 +858,6 @@ In this application:
 Total connection checkout duration per request is reduced from **10,000ms** to **10ms** ($\mathbf{1,000\times}$ efficiency multiplier).
 
 ### 2. Verified Test Suite Results
-- **Backend Tests (89/89 passing)**: Full verification of async sessions, rate limiting, LLM adapters, memory manager, dynamic schema introspection (`function_to_tool_definition`), Tavily web search (`search_web`), PDF creation & manipulation MCP server (`create_pdf`, `merge_pdfs`, `inspect_pdf`), multi-server MCP aggregation, autonomous multi-turn tool loops, calculator tools, human approval/rejection lifecycle, SSE generators, and concurrent benchmarks.
-- **Frontend Tests (65/65 passing across 12 suites)**: Full verification of components, services, pipes, interceptors, tool call event streaming, approval cards, multi-language syntax highlighting, and route guards.
-- **Total**: **124/124 tests passing (100% pass rate)**.
+- **Backend Tests (95/95 passing)**: Full verification of async sessions, rate limiting, LLM adapters, memory manager, dynamic schema introspection (`function_to_tool_definition`), Tavily web search (`search_web`), PDF creation & manipulation MCP server (`create_pdf`, `merge_pdfs`, `inspect_pdf`), authenticated PDF downloads (`GET /api/v1/chats/files/pdf/{filename}`) with traversal protection and query token support, multi-server MCP aggregation, autonomous multi-turn tool loops, calculator tools, human approval/rejection lifecycle, SSE generators, and concurrent benchmarks.
+- **Frontend Tests (103/103 passing across 17 suites)**: Full verification of components, services, pipes, interceptors, tool call event streaming, approval cards, PDF viewer modal rendering, page navigation signals, zoom scale adjustment, drawing tool and color selection, multi-language syntax highlighting, and route guards.
+- **Total**: **198/198 tests passing (100% pass rate)**.

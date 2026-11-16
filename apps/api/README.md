@@ -20,9 +20,9 @@ Provides pure-Python PDF generation and document utilities powered by `fpdf2` an
 
 **Exposed Tools:**
 - `create_pdf(title: str, content: str, filename: str | None, author: str | None) -> str`:
-  Generates a cleanly formatted A4 PDF from Markdown (headings `#`, `##`, `###`, bullet lists `- `, `* `, bold `**`, italics `*`) or HTML content with running page headers and footers (`Page X/{nb}`). Returns JSON with `file_path`, `page_count`, and `file_size_bytes`.
+  Generates a cleanly formatted A4 PDF from Markdown (headings `#`, `##`, `###`, bullet lists `- `, `* `, bold `**`, italics `*`) or HTML content with running page headers and footers (`Page X/{nb}`). Returns JSON with `file_path`, `filename`, `download_url`, `page_count`, and `file_size_bytes`.
 - `merge_pdfs(file_paths: list[str], output_filename: str | None) -> str`:
-  Merges multiple input PDF files into a single unified document using `pypdf.PdfWriter`.
+  Merges multiple input PDF files into a single unified document using `pypdf.PdfWriter`. Returns JSON with `merged_file_path`, `filename`, `download_url`, and `total_pages`.
 - `inspect_pdf(file_path: str) -> str`:
   Extracts page count, document metadata (Title, Author, CreationDate), and a first-page text preview.
 
@@ -33,7 +33,19 @@ Provides pure-Python PDF generation and document utilities powered by `fpdf2` an
 
 # Or using the local virtualenv:
 python -m app.mcp_servers.pdf_server
+
+# Or via Makefile from project root:
+make dev-mcp-pdf
 ```
+
+### PDF File Delivery & Download API
+Generated PDFs stored in `MCP_PDF_DIR` (`outputs/pdfs`) are served via an authenticated endpoint:
+- **Route**: `GET /api/v1/chats/files/pdf/{filename}`
+- **Authentication**:
+  - `Authorization: Bearer <access_token>` header (used by Angular HTTP client).
+  - Or `?token=<access_token>` URL query parameter (enabling direct browser address bar navigations and iframe embedding).
+- **Security**: Validates filename extensions (`.pdf`) and enforces canonical path confinement (`os.path.commonpath`) to block directory traversal attacks (e.g. `../../etc/passwd`).
+- **Response**: Streams binary PDF content via Starlette `FileResponse` with `application/pdf` MIME type.
 
 #### 2. Tavily Web Search Server (`app/mcp_servers/tavily_server.py`)
 Provides real-time web search capability over SSE using the Tavily API.
@@ -56,5 +68,5 @@ pytest -v
 
 Run only MCP and PDF tests:
 ```bash
-pytest app/tests/test_pdf_server.py app/tests/test_mcp_client.py -v
+pytest app/tests/test_pdf_download_api.py app/tests/test_pdf_server.py app/tests/test_mcp_client.py -v
 ```
