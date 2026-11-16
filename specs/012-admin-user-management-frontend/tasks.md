@@ -12,7 +12,7 @@
 - **Verification**: `pnpm --filter web test apps/web/src/app/core/guards/admin.guard.spec.ts apps/web/src/app/core/services/admin.service.spec.ts`
 
 ### Task 02: Admin Layout & User List Component with Ban Modal
-- [ ] Pending
+- [x] Completed
 - **Description**: Implement `AdminLayoutComponent` shell and `UserListComponent` with responsive data table, search input, role & status filter dropdowns, pagination controls, ban confirmation modal with custom reason, and super admin role dropdowns.
 - **Files**:
   - `apps/web/src/app/features/admin/admin-layout/admin-layout.component.ts`

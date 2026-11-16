@@ -1,5 +1,5 @@
 ### Task 02: Admin Layout & User List Component with Ban Modal
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Construct the administrative layout shell and main user management directory table at `/admin/users`. The component includes search input with debounce, role filter dropdown (`All`, `user`, `admin`, `super_admin`), status filter dropdown (`All`, `Active`, `Banned`), responsive table with pagination controls, and action triggers. For banning, a clean modal prompts for a required custom ban reason before dispatching the ban request. Super administrators receive an interactive dropdown to alter user roles, while regular administrators view read-only badges.

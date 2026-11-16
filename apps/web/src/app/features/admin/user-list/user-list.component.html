@@ -1,0 +1,353 @@
+<div class="user-list-container flex flex-col gap-6">
+  <!-- Page Header & Action Toast -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-[#000000]">Registered Users</h1>
+      <p class="text-xs text-[#72706b] mt-1">
+        Manage platform accounts, inspect usage, modify access levels, and enforce account restrictions.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      (click)="loadUsers()"
+      class="btn-refresh self-start sm:self-auto h-8 px-3.5 rounded-full bg-white border border-[#d1d1cd] text-xs font-medium text-[#27251e] hover:bg-[#e8e6e1] transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+      title="Refresh user directory"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+      </svg>
+      <span>Refresh</span>
+    </button>
+  </div>
+
+  <!-- Feedback Alert Toast -->
+  @if (actionMessage(); as msg) {
+    <div
+      class="p-3 rounded-xl border text-xs flex items-center justify-between shadow-2xs transition-all"
+      [ngClass]="msg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-700'"
+    >
+      <div class="flex items-center gap-2">
+        <span>{{ msg.type === 'success' ? '✓' : '⚠️' }}</span>
+        <span class="font-medium">{{ msg.text }}</span>
+      </div>
+      <button (click)="dismissToast()" class="cursor-pointer font-bold px-1.5 opacity-70 hover:opacity-100">✕</button>
+    </div>
+  }
+
+  <!-- Filters & Search Toolbar -->
+  <div class="bg-white rounded-2xl border border-[#d1d1cd] p-4 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+    <!-- Search Bar -->
+    <div class="relative flex-1 min-w-[240px]">
+      <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-xs text-[#72706b]">
+        🔍
+      </span>
+      <input
+        type="text"
+        [value]="searchQuery()"
+        (input)="onSearch($any($event.target).value)"
+        placeholder="Search users by name or email..."
+        class="w-full h-9 pl-9 pr-8 text-xs bg-[#faf8f5] border border-[#d1d1cd] rounded-xl focus:bg-white focus:outline-none focus:border-[#016a71] transition-colors text-[#27251e] placeholder-[#92918b]"
+      />
+      @if (searchQuery()) {
+        <button
+          type="button"
+          (click)="clearSearch()"
+          class="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-[#72706b] hover:text-[#27251e] cursor-pointer"
+        >
+          ✕
+        </button>
+      }
+    </div>
+
+    <!-- Filter Dropdowns & Stats -->
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Role Filter -->
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs text-[#72706b]">Role:</span>
+        <select
+          [value]="roleFilter()"
+          (change)="onRoleFilterChange($any($event.target).value)"
+          class="h-9 px-2.5 bg-[#faf8f5] border border-[#d1d1cd] rounded-xl text-xs text-[#27251e] focus:bg-white focus:outline-none focus:border-[#016a71] cursor-pointer"
+        >
+          <option value="all">All Roles</option>
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+          <option value="super_admin">Super Admin</option>
+        </select>
+      </div>
+
+      <!-- Status Filter -->
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs text-[#72706b]">Status:</span>
+        <select
+          [value]="statusFilter()"
+          (change)="onStatusFilterChange($any($event.target).value)"
+          class="h-9 px-2.5 bg-[#faf8f5] border border-[#d1d1cd] rounded-xl text-xs text-[#27251e] focus:bg-white focus:outline-none focus:border-[#016a71] cursor-pointer"
+        >
+          <option value="all">All Statuses</option>
+          <option value="active">Active Only</option>
+          <option value="banned">Banned Only</option>
+        </select>
+      </div>
+
+      <!-- Total Records Pill -->
+      <div class="ml-auto md:ml-2 h-9 px-3 rounded-xl bg-[#eef7f7] text-[#016a71] border border-[#b2dddf] text-xs font-semibold flex items-center">
+        Total: {{ adminService.total() }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Users Table Container -->
+  <div class="bg-white rounded-2xl border border-[#d1d1cd] shadow-2xs overflow-hidden flex flex-col">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead class="bg-[#faf8f5] text-[#72706b] font-medium border-b border-[#e8e6e1] select-none">
+          <tr>
+            <th class="py-3 px-4">User</th>
+            <th class="py-3 px-4">Role</th>
+            <th class="py-3 px-4">Account Status</th>
+            <th class="py-3 px-4">Joined Date</th>
+            <th class="py-3 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e8e6e1]">
+          @if (adminService.isLoading()) {
+            <tr>
+              <td colspan="5" class="py-12 text-center text-[#72706b]">
+                <div class="flex items-center justify-center gap-2">
+                  <div class="w-4 h-4 border-2 border-[#016a71] border-t-transparent rounded-full animate-spin"></div>
+                  <span>Loading platform users...</span>
+                </div>
+              </td>
+            </tr>
+          } @else if (adminService.users().length === 0) {
+            <tr>
+              <td colspan="5" class="py-12 text-center text-[#72706b]">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <span class="text-2xl">👥</span>
+                  <span class="font-medium text-[#27251e]">No users found</span>
+                  <span class="text-[11px] text-[#72706b]">Try adjusting your search query or filters.</span>
+                </div>
+              </td>
+            </tr>
+          } @else {
+            @for (user of adminService.users(); track user.id) {
+              <tr class="hover:bg-[#faf8f5]/60 transition-colors">
+                <!-- User Profile / Identity -->
+                <td class="py-3.5 px-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-[#27251e] text-white flex items-center justify-center font-semibold text-xs shrink-0 shadow-2xs">
+                      {{ (user.full_name?.[0] || user.email[0]).toUpperCase() }}
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                      <span class="font-medium text-[#27251e] truncate">
+                        {{ user.full_name || 'No Name' }}
+                        @if (user.id === currentUserId()) {
+                          <span class="text-[10px] text-[#016a71] font-semibold bg-[#eef7f7] px-1.5 py-0.2 rounded border border-[#b2dddf] ml-1">You</span>
+                        }
+                      </span>
+                      <span class="text-[11px] text-[#72706b] font-mono truncate">{{ user.email }}</span>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Role Column (Interactive for Super Admin, Static for Regular Admin) -->
+                <td class="py-3.5 px-4">
+                  @if (canChangeRole(user)) {
+                    <select
+                      [value]="user.role"
+                      (change)="onRoleChange(user, $event)"
+                      class="h-7 px-2 bg-white border border-[#d1d1cd] rounded-lg text-xs font-medium text-[#27251e] focus:border-[#016a71] focus:outline-none cursor-pointer hover:bg-[#faf8f5]"
+                      title="Change user role"
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                      <option value="super_admin">Super Admin</option>
+                    </select>
+                  } @else {
+                    <span
+                      class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium"
+                      [ngClass]="{
+                        'bg-purple-50 text-purple-700 border border-purple-200': user.role === 'super_admin',
+                        'bg-blue-50 text-blue-700 border border-blue-200': user.role === 'admin',
+                        'bg-neutral-100 text-neutral-700 border border-neutral-200': user.role === 'user'
+                      }"
+                    >
+                      {{ user.role === 'super_admin' ? 'Super Admin' : (user.role === 'admin' ? 'Admin' : 'User') }}
+                    </span>
+                  }
+                </td>
+
+                <!-- Status Column -->
+                <td class="py-3.5 px-4">
+                  @if (user.is_banned) {
+                    <span
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 cursor-help"
+                      [title]="user.ban_reason ? 'Reason: ' + user.ban_reason : 'Account banned by administrator'"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                      <span>Banned</span>
+                    </span>
+                  } @else {
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>Active</span>
+                    </span>
+                  }
+                </td>
+
+                <!-- Joined Date -->
+                <td class="py-3.5 px-4 text-[#72706b] font-mono text-[11px]">
+                  {{ user.created_at ? (user.created_at | date:'mediumDate') : '—' }}
+                </td>
+
+                <!-- Action Controls -->
+                <td class="py-3.5 px-4 text-right">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <!-- Inspect Details -->
+                    <a
+                      [routerLink]="['/admin/users', user.id]"
+                      class="btn-inspect h-7 px-2.5 rounded-md bg-white border border-[#d1d1cd] text-xs font-medium text-[#27251e] hover:bg-[#e8e6e1] transition-colors flex items-center gap-1 shadow-2xs"
+                      title="Inspect user details and metrics"
+                    >
+                      <span>🔍</span>
+                      <span>Details</span>
+                    </a>
+
+                    <!-- Ban / Unban Trigger -->
+                    @if (user.is_banned) {
+                      <button
+                        type="button"
+                        (click)="unbanUser(user)"
+                        class="btn-unban h-7 px-2.5 rounded-md bg-white border border-emerald-300 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer shadow-2xs"
+                        title="Restore user access"
+                      >
+                        Unban
+                      </button>
+                    } @else if (canBan(user)) {
+                      <button
+                        type="button"
+                        (click)="openBanModal(user)"
+                        class="btn-ban h-7 px-2.5 rounded-md bg-white border border-rose-300 text-xs font-medium text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer shadow-2xs"
+                        title="Ban user account"
+                      >
+                        Ban
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Table Pagination Bar -->
+    <div class="p-3 border-t border-[#e8e6e1] bg-[#faf8f5] flex items-center justify-between text-xs text-[#72706b]">
+      <span>
+        Page <span class="font-semibold text-[#27251e]">{{ adminService.page() }}</span> of
+        <span class="font-semibold text-[#27251e]">{{ adminService.totalPages() || 1 }}</span>
+        ({{ adminService.total() }} users)
+      </span>
+
+      <div class="flex items-center gap-1.5">
+        <button
+          type="button"
+          (click)="goToPage(adminService.page() - 1)"
+          [disabled]="adminService.page() <= 1"
+          class="h-7 px-3 rounded-md bg-white border border-[#d1d1cd] text-xs font-medium text-[#27251e] hover:bg-[#e8e6e1] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-2xs"
+        >
+          Previous
+        </button>
+        <button
+          type="button"
+          (click)="goToPage(adminService.page() + 1)"
+          [disabled]="adminService.page() >= adminService.totalPages()"
+          class="h-7 px-3 rounded-md bg-white border border-[#d1d1cd] text-xs font-medium text-[#27251e] hover:bg-[#e8e6e1] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-2xs"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ban Confirmation Modal -->
+  @if (isBanModalOpen()) {
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
+      (click)="closeBanModal()"
+    >
+      <div
+        class="bg-white rounded-2xl max-w-md w-full border border-[#d1d1cd] shadow-2xl p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150"
+        (click)="$event.stopPropagation()"
+      >
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between pb-3 border-b border-[#e8e6e1]">
+          <div class="flex items-center gap-2 text-rose-700">
+            <span class="text-base">⚠️</span>
+            <span class="font-semibold text-sm text-[#27251e]">Ban User Account</span>
+          </div>
+          <button (click)="closeBanModal()" class="text-[#72706b] hover:text-[#27251e] text-sm cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        <!-- Target User Banner -->
+        @if (targetUser(); as target) {
+          <div class="p-3 rounded-xl bg-[#faf8f5] border border-[#e8e6e1] flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-[#27251e] text-white flex items-center justify-center font-bold text-xs">
+              {{ (target.full_name?.[0] || target.email[0]).toUpperCase() }}
+            </div>
+            <div class="flex flex-col min-w-0">
+              <span class="text-xs font-semibold text-[#27251e] truncate">{{ target.full_name || 'No Name' }}</span>
+              <span class="text-[11px] text-[#72706b] font-mono truncate">{{ target.email }}</span>
+            </div>
+          </div>
+        }
+
+        <!-- Warning Context -->
+        <p class="text-xs text-[#72706b] leading-relaxed">
+          Banning this user will immediately invalidate their active authentication sessions in Redis and block all subsequent API and chat access.
+        </p>
+
+        <!-- Ban Reason Textarea -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-medium text-[#27251e]">
+            Ban Reason <span class="text-[#72706b] font-normal">(Recorded for audit trail)</span>
+          </label>
+          <textarea
+            [(ngModel)]="banReason"
+            rows="3"
+            placeholder="E.g. Violation of terms, repeated abuse, spamming..."
+            class="w-full text-xs p-2.5 bg-[#faf8f5] border border-[#d1d1cd] rounded-xl focus:bg-white focus:outline-none focus:border-rose-500 text-[#27251e] resize-none"
+          ></textarea>
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#e8e6e1]">
+          <button
+            type="button"
+            (click)="closeBanModal()"
+            [disabled]="isSubmitting()"
+            class="h-8 px-4 rounded-full bg-white border border-[#d1d1cd] text-xs font-medium text-[#72706b] hover:bg-[#e8e6e1] hover:text-[#27251e] transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            (click)="confirmBan()"
+            [disabled]="isSubmitting()"
+            class="h-8 px-4 rounded-full bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+          >
+            @if (isSubmitting()) {
+              <div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            }
+            <span>Confirm Ban</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>
