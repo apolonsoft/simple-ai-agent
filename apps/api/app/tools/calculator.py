@@ -2,6 +2,7 @@
 from collections.abc import Callable
 from typing import Any, Literal
 
+from app.mcp_servers.pdf_server import create_pdf, inspect_pdf, merge_pdfs
 from app.tools.base import function_to_tool_definition, tool_execution
 from app.tools.search import search_web
 
@@ -30,6 +31,9 @@ def calculator(
 AVAILABLE_TOOLS: dict[str, Callable[..., Any]] = {
     "calculator": calculator,
     "search_web": search_web,
+    "create_pdf": create_pdf,
+    "inspect_pdf": inspect_pdf,
+    "merge_pdfs": merge_pdfs,
 }
 
 # Dynamically generated schemas from registered Python functions
@@ -40,6 +44,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
 # Direct dynamic definitions for explicit backward-compatible imports
 calculator_tool_definition: dict[str, Any] = function_to_tool_definition(calculator)
 search_web_tool_definition: dict[str, Any] = function_to_tool_definition(search_web)
+create_pdf_tool_definition: dict[str, Any] = function_to_tool_definition(create_pdf)
+inspect_pdf_tool_definition: dict[str, Any] = function_to_tool_definition(inspect_pdf)
+merge_pdfs_tool_definition: dict[str, Any] = function_to_tool_definition(merge_pdfs)
 
 
 def execute_tool(name: str, arguments: dict[str, Any]) -> Any:

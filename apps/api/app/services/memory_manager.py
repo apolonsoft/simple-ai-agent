@@ -1,6 +1,6 @@
 # app/services/memory_manager.py
 from collections.abc import Sequence
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 from app.core.config import settings
 from app.models.chat import ChatMessageModel
@@ -16,11 +16,16 @@ TOOL_SYSTEM_INSTRUCTION = (
     "- 'calculator': Perform basic arithmetic operations (add, subtract, multiply, divide). "
     "Use this tool ONLY when explicit mathematical calculations are required.\n"
     "- 'search_web': Search the web for current information, news, and external facts. "
-    "Use this tool ONLY when web search is required.\n\n"
+    "Use this tool ONLY when web search is required.\n"
+    "- 'create_pdf': Create a styled PDF document from text or Markdown content. "
+    "Use this tool when the user requests generating, creating, or exporting a PDF document or report.\n"
+    "- 'inspect_pdf': Inspect a PDF document and extract metadata, page count, and text outline.\n"
+    "- 'merge_pdfs': Merge multiple PDF documents into a single document.\n\n"
     "Tool Usage Rules:\n"
     "- Only call a tool when it is directly relevant and required to answer the user request.\n"
     "- Never call 'calculator' for informational or search questions.\n"
     "- Never call 'search_web' for pure arithmetic calculations.\n"
+    "- When the user requests generating or creating a PDF report or document, use 'create_pdf'.\n"
     "- Call only ONE tool at a time. Do not call multiple tools unless explicitly requested.\n"
     "- If no tool is needed, respond directly with text without invoking any tools."
 )
@@ -47,6 +52,7 @@ class MemoryManager:
         new_user_message: str | None = None,
         custom_system_prompt: str | None = None,
         include_tools: bool = False,
+        tools: list[dict[str, Any]] | None = None,
     ) -> list[LLMMessage]:
         """
         Assembles prompt context for LLM:
@@ -55,8 +61,33 @@ class MemoryManager:
         3. Appends the newest incoming user message.
         """
         system_instruction = custom_system_prompt or self.default_system_prompt
-        if include_tools:
-            system_instruction += TOOL_SYSTEM_INSTRUCTION
+        if include_tools or tools:
+            if tools:
+                tools_lines = []
+                for t in tools:
+                    fn = t.get("function", {})
+                    name = fn.get("name", "")
+                    raw_desc = (fn.get("description") or "").strip()
+                    desc = (
+                        raw_desc.split("\n")[0].strip()
+                        if raw_desc
+                        else "No description provided."
+                    )
+                    if name:
+                        tools_lines.append(f"- '{name}': {desc}")
+                tools_desc = "\n".join(tools_lines)
+                system_instruction += (
+                    f"\n\nYou have access to the following tools:\n{tools_desc}\n\n"
+                    "Tool Usage Rules:\n"
+                    "- Only call a tool when it is directly relevant and required to answer the user request.\n"
+                    "- Never call 'calculator' for informational or search questions.\n"
+                    "- Never call 'search_web' for pure arithmetic calculations.\n"
+                    "- When the user requests generating or creating a PDF report or document, use 'create_pdf'.\n"
+                    "- Call only ONE tool at a time. Do not call multiple tools unless explicitly requested.\n"
+                    "- If no tool is needed, respond directly with text without invoking any tools."
+                )
+            else:
+                system_instruction += TOOL_SYSTEM_INSTRUCTION
 
         context: list[LLMMessage] = [
             LLMMessage(role="system", content=system_instruction)

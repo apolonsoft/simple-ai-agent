@@ -114,3 +114,35 @@ def test_memory_manager_context_with_tools_includes_all_tools_and_rules():
         "Never call 'calculator' for informational or search questions"
         in system_content
     )
+
+
+def test_memory_manager_context_with_dynamic_tools():
+    manager = MemoryManager(window_size=5)
+    tools = [
+        {
+            "function": {
+                "name": "create_pdf",
+                "description": "Create a styled PDF document.",
+            }
+        },
+        {
+            "function": {
+                "name": "calculator",
+                "description": "Perform basic arithmetic.",
+            }
+        },
+    ]
+    context = manager.build_context(
+        history=[],
+        new_user_message="Make a report",
+        include_tools=True,
+        tools=tools,
+    )
+    assert len(context) == 2
+    system_content = context[0].content
+    assert "- 'create_pdf': Create a styled PDF document." in system_content
+    assert "- 'calculator': Perform basic arithmetic." in system_content
+    assert (
+        "When the user requests generating or creating a PDF report or document, use 'create_pdf'."
+        in system_content
+    )

@@ -112,13 +112,6 @@ class ChatStreamService:
                 session_id, saved_user_msg or {"role": "user", "content": user_content}
             )
 
-            llm_messages = self.memory_manager.build_context(
-                history=prior_history,
-                new_user_message=user_content,
-                custom_system_prompt=custom_system_prompt,
-                include_tools=True,
-            )
-
         # Database connection is now released back to the pool.
         # ==============================================================================
         # 2. STREAMING INFERENCE PHASE: Zero DB connections held during token generation
@@ -134,6 +127,14 @@ class ChatStreamService:
         for mt in mcp_tools:
             if mt.get("function", {}).get("name") not in local_tool_names:
                 active_tools.append(mt)
+
+        llm_messages = self.memory_manager.build_context(
+            history=prior_history,
+            new_user_message=user_content,
+            custom_system_prompt=custom_system_prompt,
+            include_tools=True,
+            tools=active_tools,
+        )
 
         try:
             async for token in provider.generate_stream(

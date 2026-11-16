@@ -27,7 +27,10 @@ echo -e "${GREEN}=======================================${NC}"
 echo -e "${GREEN}🚀 [Backend] Starting FastAPI at http://localhost:8000 ...${NC}"
 (
     cd "$ROOT_DIR/apps/api" || exit 1
-    if [ -f "$ROOT_DIR/.venv/bin/activate" ]; then
+    if [ -f "$ROOT_DIR/apps/api/.venv/bin/activate" ]; then
+        source "$ROOT_DIR/apps/api/.venv/bin/activate"
+        python3 -m uvicorn app.main:app --reload --port 8000
+    elif [ -f "$ROOT_DIR/.venv/bin/activate" ]; then
         source "$ROOT_DIR/.venv/bin/activate"
         python3 -m uvicorn app.main:app --reload --port 8000
     elif command -v uv &>/dev/null; then

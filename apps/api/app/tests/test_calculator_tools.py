@@ -457,3 +457,105 @@ async def test_search_web_tool_calling_flow_with_user_approval(
         assert "executed" in approval_text
         assert "FastAPI Release" in approval_text
         assert "FastAPI latest release includes multiple improvements" in approval_text
+
+
+@pytest.mark.asyncio
+async def test_create_pdf_tool_calling_flow_with_user_approval(
+    client: httpx.AsyncClient,
+):
+    import json
+    import os
+
+    token = await get_auth_token(client, "pdf_tool_approval@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    sess_res = await client.post(
+        "/api/v1/chats", json={"title": "PDF Report Session"}, headers=headers
+    )
+    session_id = sess_res.json()["id"]
+
+    mock_pdf_call = {
+        "type": "tool_call",
+        "name": "create_pdf",
+        "arguments": {
+            "title": "Architecture Report",
+            "content": "# Architecture Overview\nOur system uses FastAPI and Angular.",
+            "filename": "arch_report_test.pdf",
+        },
+    }
+    mock_provider = MockToolCallingProvider(
+        tool_call_dict=mock_pdf_call,
+        text_after_tool="Your PDF architecture report has been generated successfully.",
+    )
+
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        stream_res = await client.post(
+            f"/api/v1/chats/{session_id}/stream",
+            json={
+                "content": "Generate a comprehensive PDF report about our architecture using the create_pdf tool."
+            },
+            headers=headers,
+        )
+        assert stream_res.status_code == status.HTTP_200_OK
+        text_body = stream_res.text
+        assert "event: tool_call" in text_body
+        assert "create_pdf" in text_body
+        assert "Architecture Report" in text_body
+        assert "awaiting_approval" in text_body
+
+    msgs_res = await client.get(f"/api/v1/chats/{session_id}/messages", headers=headers)
+    assert msgs_res.status_code == status.HTTP_200_OK
+    messages = msgs_res.json()
+    assistant_msg = messages[1]
+    tool_call = assistant_msg["tool_calls"][0]
+    assert tool_call["tool"] == "create_pdf"
+    assert tool_call["status"] == "pending"
+
+    generated_file_path = None
+    try:
+        with patch(
+            "app.services.chat_stream_service.get_llm_provider",
+            return_value=mock_provider,
+        ):
+            approval_res = await client.post(
+                f"/api/v1/chats/{session_id}/tool-calls/approval",
+                json={
+                    "tool_call_id": tool_call["id"],
+                    "approved": True,
+                    "message_id": assistant_msg["id"],
+                },
+                headers=headers,
+            )
+            assert approval_res.status_code == status.HTTP_200_OK
+            approval_text = approval_res.text
+            assert "event: tool_result" in approval_text
+            assert "executed" in approval_text
+            assert "download_url" in approval_text
+            assert (
+                "Your PDF architecture report has been generated successfully."
+                in approval_text
+            )
+
+        # Verify tool result recorded in message
+        msgs_res2 = await client.get(
+            f"/api/v1/chats/{session_id}/messages", headers=headers
+        )
+        updated_assistant_msg = msgs_res2.json()[1]
+        executed_call = updated_assistant_msg["tool_calls"][0]
+        assert executed_call["status"] == "executed"
+        raw_result = executed_call["result"]
+        parsed_result = json.loads(raw_result)
+        assert parsed_result["status"] == "success"
+        assert "arch_report_test.pdf" in parsed_result["filename"]
+        assert (
+            parsed_result["download_url"]
+            == f"/api/v1/chats/files/pdf/{parsed_result['filename']}"
+        )
+        generated_file_path = parsed_result.get("file_path")
+        if generated_file_path:
+            assert os.path.exists(generated_file_path)
+    finally:
+        if generated_file_path and os.path.exists(generated_file_path):
+            os.remove(generated_file_path)
