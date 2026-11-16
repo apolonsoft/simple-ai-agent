@@ -92,4 +92,44 @@ describe('ChatLayoutComponent', () => {
 
     expect(mockAuthService.logout).toHaveBeenCalled();
   });
+
+  it('should render admin nav pill when user role is admin or super_admin', () => {
+    currentUserSignal.set({
+      id: 'uuid-admin',
+      email: 'admin@example.com',
+      role: 'admin',
+      is_active: true,
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const adminPill = compiled.querySelector('.admin-nav-pill');
+    expect(adminPill).toBeTruthy();
+    expect(adminPill?.getAttribute('href')).toBe('/admin/users');
+    expect(adminPill?.textContent).toContain('Admin');
+
+    // Also check super_admin
+    currentUserSignal.set({
+      id: 'uuid-super',
+      email: 'super@example.com',
+      role: 'super_admin',
+      is_active: true,
+    });
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.admin-nav-pill')).toBeTruthy();
+  });
+
+  it('should NOT render admin nav pill when user role is regular user', () => {
+    currentUserSignal.set({
+      id: 'uuid-user',
+      email: 'user@example.com',
+      role: 'user',
+      is_active: true,
+    });
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.admin-nav-pill')).toBeNull();
+  });
 });

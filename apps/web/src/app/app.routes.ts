@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { guestGuard } from './core/guards/guest.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -62,6 +63,35 @@ export const routes: Routes = [
       import('./features/profile/profile.component').then(
         (m) => m.ProfileComponent
       ),
+  },
+  {
+    path: 'admin',
+    canActivate: [authGuard, adminGuard],
+    loadComponent: () =>
+      import('./features/admin/admin-layout/admin-layout.component').then(
+        (m) => m.AdminLayoutComponent
+      ),
+    children: [
+      {
+        path: '',
+        redirectTo: 'users',
+        pathMatch: 'full',
+      },
+      {
+        path: 'users',
+        loadComponent: () =>
+          import('./features/admin/user-list/user-list.component').then(
+            (m) => m.UserListComponent
+          ),
+      },
+      {
+        path: 'users/:id',
+        loadComponent: () =>
+          import('./features/admin/user-detail/user-detail.component').then(
+            (m) => m.UserDetailComponent
+          ),
+      },
+    ],
   },
   {
     path: '',

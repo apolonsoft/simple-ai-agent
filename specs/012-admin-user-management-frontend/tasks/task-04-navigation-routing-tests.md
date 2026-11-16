@@ -1,5 +1,5 @@
 ### Task 04: Navigation Integration, Routing Configuration, and Verification
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Integrate the admin subsystem into the application routing structure and navigation header. Configure `/admin` routes in `app.routes.ts` secured with `adminGuard`, lazy-loading the admin layout and child components (`/admin/users` and `/admin/users/:id`). Update `ChatLayoutComponent` top bar with a `🛡️ Admin` pill visible exclusively to users with `role: 'admin'` or `role: 'super_admin'`. Run full frontend test suites (`make test-web`) and production build verification (`make build-web`) to ensure 100% build health and zero regressions.

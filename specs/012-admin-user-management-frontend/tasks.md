@@ -32,7 +32,7 @@
 - **Verification**: `pnpm --filter web test apps/web/src/app/features/admin/user-detail/user-detail.component.spec.ts`
 
 ### Task 04: Navigation Integration, Routing Configuration, and Verification
-- [ ] Pending
+- [x] Completed
 - **Description**: Configure lazy-loaded `/admin` child routes in `app.routes.ts`, add the role-protected `🛡️ Admin` pill in `chat-layout.component.html|ts`, and run comprehensive frontend test suite and production build verification.
 - **Files**:
   - `apps/web/src/app/app.routes.ts`

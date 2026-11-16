@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
@@ -15,6 +15,10 @@ export class ChatLayoutComponent {
   private readonly authService = inject(AuthService);
 
   readonly currentUser = this.authService.currentUser;
+  readonly isAdminOrSuperAdmin = computed(() => {
+    const role = this.currentUser()?.role;
+    return role === 'admin' || role === 'super_admin';
+  });
 
   onLogout(): void {
     this.authService.logout();

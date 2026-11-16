@@ -10,6 +10,17 @@
     </div>
 
     <div class="user-actions flex items-center gap-3">
+      @if (isAdminOrSuperAdmin()) {
+        <a
+          routerLink="/admin/users"
+          class="admin-nav-pill h-7 px-3 rounded-full bg-white border border-[#b2dddf] text-[#016a71] hover:bg-[#eef7f7] text-xs font-semibold flex items-center gap-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all cursor-pointer select-none"
+          title="Open Admin Console"
+        >
+          <span class="text-xs">🛡️</span>
+          <span>Admin</span>
+        </a>
+      }
+
       @if (currentUser(); as user) {
         <a
           routerLink="/profile"
