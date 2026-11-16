@@ -1,0 +1,217 @@
+<div class="pdf-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 md:p-6" (click)="close()">
+  <div class="pdf-modal-card bg-[#ffffff] rounded-2xl max-w-5xl w-full h-[92vh] flex flex-col shadow-2xl border border-[#d1d1cd] overflow-hidden" (click)="$event.stopPropagation()">
+    
+    <!-- Top Action & Navigation Bar -->
+    <header class="pdf-toolbar flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-[#d1d1cd] bg-[#faf8f5] select-none shrink-0">
+      
+      <!-- Filename and Document Info -->
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-base">📄</span>
+        <span class="font-mono text-xs font-semibold text-[#27251e] truncate max-w-[180px] sm:max-w-[240px]">{{ filename() }}</span>
+      </div>
+
+      <!-- Controls Group -->
+      <div class="flex items-center flex-wrap gap-1.5 sm:gap-2">
+        
+        <!-- Page Navigation Pill -->
+        <div class="toolbar-pill flex items-center bg-white border border-[#d1d1cd] rounded-full px-1.5 py-0.5 shadow-2xs">
+          <button
+            type="button"
+            class="btn-nav p-1 rounded-full hover:bg-[#e8e6e1] text-[#27251e] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer text-xs flex items-center justify-center"
+            [disabled]="currentPage() <= 1 || isLoading()"
+            (click)="prevPage()"
+            title="Previous Page (Left Arrow)"
+          >
+            ◀
+          </button>
+          <span class="page-indicator text-[11px] font-mono px-2 text-[#27251e]">
+            {{ currentPage() }} / {{ totalPages() }}
+          </span>
+          <button
+            type="button"
+            class="btn-nav p-1 rounded-full hover:bg-[#e8e6e1] text-[#27251e] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer text-xs flex items-center justify-center"
+            [disabled]="currentPage() >= totalPages() || isLoading()"
+            (click)="nextPage()"
+            title="Next Page (Right Arrow)"
+          >
+            ▶
+          </button>
+        </div>
+
+        <!-- Zoom Controls Pill -->
+        <div class="toolbar-pill flex items-center bg-white border border-[#d1d1cd] rounded-full px-1.5 py-0.5 shadow-2xs">
+          <button
+            type="button"
+            class="btn-zoom px-1.5 py-0.5 rounded-full hover:bg-[#e8e6e1] text-[#27251e] text-xs font-medium cursor-pointer transition-colors"
+            (click)="zoomOut()"
+            title="Zoom Out"
+          >
+            －
+          </button>
+          <button
+            type="button"
+            class="btn-reset-zoom text-[11px] font-mono px-1.5 text-[#27251e] hover:text-[#016a71] cursor-pointer"
+            (click)="resetZoom()"
+            title="Reset Zoom (100%)"
+          >
+            {{ Math.round(zoomScale() * 100) }}%
+          </button>
+          <button
+            type="button"
+            class="btn-zoom px-1.5 py-0.5 rounded-full hover:bg-[#e8e6e1] text-[#27251e] text-xs font-medium cursor-pointer transition-colors"
+            (click)="zoomIn()"
+            title="Zoom In"
+          >
+            ＋
+          </button>
+          <div class="h-3 w-px bg-[#d1d1cd] mx-0.5"></div>
+          <button
+            type="button"
+            class="btn-fit text-[11px] font-medium px-1.5 py-0.5 rounded-full hover:bg-[#e8e6e1] text-[#72706b] hover:text-[#27251e] cursor-pointer transition-colors"
+            (click)="fitWidth()"
+            title="Fit to Width"
+          >
+            Fit
+          </button>
+        </div>
+
+        <!-- Annotation Tools Pill -->
+        <div class="toolbar-pill flex items-center bg-white border border-[#d1d1cd] rounded-full p-0.5 shadow-2xs">
+          <button
+            type="button"
+            class="tool-btn px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+            [class.bg-[#27251e]]="activeTool() === 'pan'"
+            [class.text-white]="activeTool() === 'pan'"
+            [class.text-[#72706b]]="activeTool() !== 'pan'"
+            [class.hover:bg-[#e8e6e1]]="activeTool() !== 'pan'"
+            (click)="setTool('pan')"
+            title="Pan / Select Mode"
+          >
+            <span>✋</span>
+            <span class="hidden sm:inline text-[11px]">Pan</span>
+          </button>
+          <button
+            type="button"
+            class="tool-btn px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+            [class.bg-[#27251e]]="activeTool() === 'pen'"
+            [class.text-white]="activeTool() === 'pen'"
+            [class.text-[#72706b]]="activeTool() !== 'pen'"
+            [class.hover:bg-[#e8e6e1]]="activeTool() !== 'pen'"
+            (click)="setTool('pen')"
+            title="Pen Drawing"
+          >
+            <span>✏️</span>
+            <span class="hidden sm:inline text-[11px]">Pen</span>
+          </button>
+          <button
+            type="button"
+            class="tool-btn px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+            [class.bg-[#27251e]]="activeTool() === 'highlighter'"
+            [class.text-white]="activeTool() === 'highlighter'"
+            [class.text-[#72706b]]="activeTool() !== 'highlighter'"
+            [class.hover:bg-[#e8e6e1]]="activeTool() !== 'highlighter'"
+            (click)="setTool('highlighter')"
+            title="Highlighter"
+          >
+            <span>🖍️</span>
+            <span class="hidden sm:inline text-[11px]">Highlight</span>
+          </button>
+        </div>
+
+        <!-- Color Palette (visible when pen or highlighter is active) -->
+        @if (activeTool() !== 'pan') {
+          <div class="palette-pill flex items-center gap-1 bg-white border border-[#d1d1cd] rounded-full px-2 py-1 shadow-2xs animate-in fade-in duration-200">
+            @for (c of paletteColors; track c.hex) {
+              <button
+                type="button"
+                class="w-4 h-4 rounded-full transition-transform cursor-pointer border border-black/10"
+                [style.background-color]="c.hex"
+                [class.ring-2]="activeColor() === c.hex"
+                [class.ring-offset-1]="activeColor() === c.hex"
+                [class.ring-[#016a71]]="activeColor() === c.hex"
+                [class.scale-110]="activeColor() === c.hex"
+                (click)="setColor(c.hex)"
+                [title]="c.label"
+              ></button>
+            }
+          </div>
+
+          <button
+            type="button"
+            class="btn-clear text-[11px] font-medium h-7 px-2.5 rounded-full bg-white border border-[#d1d1cd] text-[#72706b] hover:text-[#ef4444] hover:bg-[#fee2e2] transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+            (click)="clearAnnotations()"
+            title="Clear Page Annotations"
+          >
+            <span>🧹</span>
+            <span class="hidden sm:inline">Clear</span>
+          </button>
+        }
+      </div>
+
+      <!-- Right Header Actions (Download & Close) -->
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="btn-download h-7 px-3 rounded-full bg-[#016a71] text-white text-xs font-medium hover:bg-[#015257] flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+          (click)="triggerDownload()"
+          title="Download original PDF"
+        >
+          <span>⬇️</span>
+          <span class="hidden sm:inline">Download</span>
+        </button>
+        <button
+          type="button"
+          class="btn-close w-7 h-7 rounded-full bg-white border border-[#d1d1cd] text-xs font-medium text-[#72706b] hover:bg-[#e8e6e1] hover:text-[#27251e] flex items-center justify-center transition-colors cursor-pointer shadow-2xs"
+          (click)="close()"
+          aria-label="Close PDF Viewer"
+        >
+          ✕
+        </button>
+      </div>
+    </header>
+
+    <!-- Canvas Scrollable Viewport -->
+    <main
+      #canvasContainer
+      class="canvas-viewport flex-1 bg-[#edebe6] overflow-auto flex items-start justify-center p-4 sm:p-6 relative"
+    >
+      @if (isLoading()) {
+        <div class="loading-state absolute inset-0 flex flex-col items-center justify-center bg-[#edebe6]/80 backdrop-blur-2xs z-30">
+          <div class="w-8 h-8 rounded-full border-3 border-[#d1d1cd] border-t-[#016a71] animate-spin mb-2"></div>
+          <span class="text-xs font-medium text-[#27251e]">Rendering document canvas...</span>
+        </div>
+      }
+
+      @if (renderError()) {
+        <div class="error-state p-6 bg-white border border-[#ef4444]/30 rounded-2xl text-center max-w-md my-auto shadow-md">
+          <div class="text-2xl mb-2">⚠️</div>
+          <h4 class="text-sm font-semibold text-[#ef4444] mb-1">Failed to Render PDF</h4>
+          <p class="text-xs text-[#72706b] mb-4">{{ renderError() }}</p>
+          <button
+            type="button"
+            class="h-7 px-3 rounded-full bg-[#27251e] text-white text-xs font-medium hover:bg-black transition-colors"
+            (click)="triggerDownload()"
+          >
+            Download File Instead
+          </button>
+        </div>
+      }
+
+      <!-- High-DPI Dual Canvas Stack -->
+      <div class="canvas-wrapper relative shadow-xl rounded-sm bg-white overflow-hidden my-auto"
+           [class.hidden]="isLoading() || renderError()">
+        <canvas #basePdfCanvas class="block"></canvas>
+        <canvas
+          #overlayDrawCanvas
+          class="absolute inset-0 block select-none"
+          [class.cursor-crosshair]="activeTool() !== 'pan'"
+          [class.cursor-default]="activeTool() === 'pan'"
+          (pointerdown)="onPointerDown($event)"
+          (pointermove)="onPointerMove($event)"
+          (pointerup)="onPointerUp($event)"
+          (pointercancel)="onPointerUp($event)"
+        ></canvas>
+      </div>
+    </main>
+  </div>
+</div>

@@ -1,6 +1,6 @@
 ### Task 02: Implement Standalone PdfViewerModalComponent with Zoom and Annotation Toolbar
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Implement a standalone Angular 22 component `PdfViewerModalComponent` under `apps/web/src/app/features/chat/pdf-viewer-modal/`. The component renders PDF pages on an HTML5 canvas using `pdfjs-dist` and provides a transparent drawing canvas overlay for freehand pen and highlighter annotations. It provides comprehensive toolbar controls: page navigation (Prev, Next, Page X of Y), zoom controls (Zoom In, Zoom Out, Fit Width, 100% Reset), drawing controls (Pan/Select, Pen with colors, Highlighter with colors, Clear Annotations), Download action, and Close button.
