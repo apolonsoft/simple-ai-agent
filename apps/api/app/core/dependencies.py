@@ -61,6 +61,12 @@ async def get_current_user(
     if not user or not user.is_active:
         raise credentials_exception
 
+    if user.is_banned:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Account has been suspended. Reason: {user.ban_reason or 'No reason specified.'}",
+        )
+
     return user
 
 
@@ -76,3 +82,27 @@ def require_role(required_role: str) -> Callable:
         return current_user
 
     return role_checker
+
+
+def require_admin_role(
+    current_user: UserModel = Depends(get_current_user),
+) -> UserModel:
+    """Verifies user has administrative privileges ('admin' or 'super_admin')."""
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to access this administrative resource.",
+        )
+    return current_user
+
+
+def require_super_admin_role(
+    current_user: UserModel = Depends(get_current_user),
+) -> UserModel:
+    """Verifies user strictly has 'super_admin' privileges."""
+    if current_user.role != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super administrator privileges required for this action.",
+        )
+    return current_user

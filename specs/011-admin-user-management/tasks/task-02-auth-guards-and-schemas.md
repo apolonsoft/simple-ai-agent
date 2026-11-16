@@ -1,6 +1,6 @@
 ### Task 02: Auth Guards & Admin Schemas
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Update authentication dependency `get_current_user` to automatically reject banned accounts with HTTP 403 Forbidden. Implement role-checking dependencies `require_admin_role` and `require_super_admin_role`. Define Pydantic request and response schemas for all administrative endpoints.
