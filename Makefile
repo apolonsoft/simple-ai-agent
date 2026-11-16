@@ -1,4 +1,4 @@
-.PHONY: help up down logs verify test-api dev-api migrate migrations run-migrations run dev-web test-web build-web test-all benchmark lint lint-api format format-api typecheck-api
+.PHONY: help up down logs verify test-api dev-api dev-mcp-pdf migrate migrations run-migrations run dev-web test-web build-web test-all benchmark lint lint-api format format-api typecheck-api
 
 help:
 	@echo "Available commands:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make typecheck-api    - Run Astral ty type checker on FastAPI backend"
 	@echo "  make test-api         - Run FastAPI test suite (Pytest)"
 	@echo "  make dev-api          - Run FastAPI backend development server"
+	@echo "  make dev-mcp-pdf      - Run standalone PDF MCP server on port 8002"
 	@echo "  make migrate          - Apply database migrations with Alembic"
 	@echo "  make run migrations   - Apply database migrations with Alembic (alias)"
 	@echo "  make dev-web          - Run Angular development server (pnpm start with proxy)"
@@ -58,6 +59,9 @@ run:
 
 dev-api:
 	cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000
+
+dev-mcp-pdf:
+	cd apps/api && .venv/bin/python -m app.mcp_servers.pdf_server
 
 # Frontend (using sandboxed pnpm and node 24)
 dev-web:

@@ -50,7 +50,20 @@ echo -e "${GREEN}🔧 [MCP Server] Starting Tavily Search MCP Server at http://l
     fi
 ) &
 
-# 3. Start Frontend (apps/web)
+# 3. Start PDF MCP Server (apps/api/app/mcp_servers)
+echo -e "${GREEN}📄 [MCP Server] Starting PDF Tools MCP Server at http://localhost:8002/sse ...${NC}"
+(
+    cd "$ROOT_DIR/apps/api" || exit 1
+    if [ -f "$ROOT_DIR/apps/api/.venv/bin/python" ]; then
+        "$ROOT_DIR/apps/api/.venv/bin/python" -m app.mcp_servers.pdf_server
+    elif command -v uv &>/dev/null; then
+        uv run python -m app.mcp_servers.pdf_server
+    else
+        python3 -m app.mcp_servers.pdf_server
+    fi
+) &
+
+# 4. Start Frontend (apps/web)
 if [ -f "$ROOT_DIR/apps/web/package.json" ]; then
     echo -e "${BLUE}💻 [Frontend] Starting Web App ...${NC}"
     (

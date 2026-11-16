@@ -1,6 +1,6 @@
 ### Task 02: Development Orchestration in dev.sh and Makefile
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Add automated orchestration for the PDF MCP server (`apps/api/app/mcp_servers/pdf_server.py`) into the monorepo local development scripts (`dev.sh` and `Makefile`). Running `./dev.sh` will automatically launch the PDF MCP server on port `8002` alongside FastAPI, the Tavily MCP server, and the web app, and ensure clean process termination upon exit.
