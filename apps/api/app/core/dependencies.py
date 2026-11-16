@@ -2,7 +2,7 @@
 import uuid
 from collections.abc import Callable
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,17 +12,23 @@ from app.db.session import get_db
 from app.models.user import UserModel
 
 # Enables the "Authorize" button in Swagger UI (/docs)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
+    header_token: str | None = Depends(oauth2_scheme),
+    query_token: str | None = Query(None, alias="token"),
+    db: AsyncSession = Depends(get_db),
 ) -> UserModel:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    token = header_token or query_token
+    if not token:
+        raise credentials_exception
 
     payload = decode_access_token(token)
     if payload is None or "sub" not in payload:

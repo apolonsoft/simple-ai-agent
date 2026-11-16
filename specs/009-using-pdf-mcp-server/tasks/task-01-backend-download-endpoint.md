@@ -3,7 +3,7 @@
 - [x] Completed
 
 #### Full Description
-Implement an authenticated file delivery endpoint `GET /api/v1/chats/files/pdf/{filename}` in FastAPI. The endpoint must require user authentication, protect against directory traversal attacks, verify the requested file exists in `settings.MCP_PDF_DIR`, and return a `FileResponse` with MIME type `application/pdf`. Additionally, update `pdf_server.py` so `create_pdf` and `merge_pdfs` output include `download_url: f"/api/v1/chats/files/pdf/{safe_filename}"`.
+Implement an authenticated file delivery endpoint `GET /api/v1/chats/files/pdf/{filename}` in FastAPI. The endpoint supports both `Authorization: Bearer <token>` and `?token=<token>` query parameter authentication for direct browser address bar navigations and iframe embedding, protects against directory traversal attacks, verifies the requested file exists in `settings.MCP_PDF_DIR`, and returns a `FileResponse` with MIME type `application/pdf`. Additionally, update `pdf_server.py` so `create_pdf` and `merge_pdfs` output include `download_url: f"/api/v1/chats/files/pdf/{safe_filename}"`.
 
 #### Technical Instructions
 1. In `apps/api/app/routes/chat_routes.py`:

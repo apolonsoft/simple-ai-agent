@@ -91,3 +91,56 @@ async def test_download_pdf_success(client: httpx.AsyncClient):
     file_path = data["file_path"]
     if os.path.exists(file_path):
         os.remove(file_path)
+
+
+@pytest.mark.asyncio
+async def test_download_pdf_success_via_query_param(client: httpx.AsyncClient):
+    """Verify that user can download a generated PDF using ?token= query parameter without Authorization header."""
+    token = await get_auth_token(client, "pdf_query_token@example.com")
+
+    raw_res = create_pdf(
+        title="Query Param Test Document",
+        content="Testing download via URL query parameter for browser direct navigation.",
+        filename="test_query_token_doc.pdf",
+    )
+    data = json.loads(raw_res)
+    assert data["status"] == "success"
+    filename = data["filename"]
+
+    # Request with ?token= query parameter and NO Authorization header
+    download_res = await client.get(f"/api/v1/chats/files/pdf/{filename}?token={token}")
+    assert download_res.status_code == status.HTTP_200_OK
+    assert "application/pdf" in download_res.headers.get("content-type", "")
+    assert download_res.content.startswith(b"%PDF")
+
+    file_path = data["file_path"]
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+
+@pytest.mark.asyncio
+async def test_download_pdf_success_via_query_param(client: httpx.AsyncClient):
+    """Verify that user can download a generated PDF using ?token= query parameter without Authorization header."""
+    token = await get_auth_token(client, "pdf_query_token@example.com")
+
+    raw_res = create_pdf(
+        title="Query Param Test Document",
+        content="Testing download via URL query parameter for browser direct navigation.",
+        filename="test_query_token_doc.pdf",
+    )
+    data = json.loads(raw_res)
+    assert data["status"] == "success"
+    filename = data["filename"]
+
+    # Request with ?token= query parameter and NO Authorization header
+    download_res = await client.get(
+        f"/api/v1/chats/files/pdf/{filename}?token={token}"
+    )
+    assert download_res.status_code == status.HTTP_200_OK
+    assert "application/pdf" in download_res.headers.get("content-type", "")
+    assert download_res.content.startswith(b"%PDF")
+
+    file_path = data["file_path"]
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
