@@ -1,5 +1,5 @@
 ### Task 03: User Detail Component & Metrics Page
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Construct the dedicated user inspection page at `/admin/users/:id`. The page provides detailed visibility into a specific user account: personal details (avatar, name, email, bio, email verification status), account activity metrics (total chat sessions count, created date, last updated date), and prominent ban information (if banned: timestamp and custom ban reason). The page includes operational controls to ban or unban the user and modify user roles (for `super_admin`), plus a "← Back to Users" button to return to the directory.

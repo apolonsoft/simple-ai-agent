@@ -23,7 +23,7 @@
 - **Verification**: `pnpm --filter web test apps/web/src/app/features/admin/user-list/user-list.component.spec.ts`
 
 ### Task 03: User Detail Component & Metrics Page
-- [ ] Pending
+- [x] Completed
 - **Description**: Build dedicated inspection page at `/admin/users/:id` with "Back to Users" navigation, user identity details, total chat sessions count metric card, ban status banner, and ban/unban/role action controls.
 - **Files**:
   - `apps/web/src/app/features/admin/user-detail/user-detail.component.ts`
