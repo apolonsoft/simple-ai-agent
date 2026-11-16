@@ -280,40 +280,13 @@
     </div>
   }
 
-  <!-- PDF Native Preview Modal -->
-  @if (previewPdfUrl()) {
-    <div class="pdf-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 sm:p-6" (click)="closePdfViewer()">
-      <div class="pdf-modal-card bg-white rounded-2xl max-w-4xl w-full h-[85vh] flex flex-col shadow-2xl border border-[#d1d1cd] overflow-hidden" (click)="$event.stopPropagation()">
-        <div class="pdf-modal-header flex items-center justify-between px-4 py-3 border-b border-[#d1d1cd] bg-[#faf8f5]">
-          <div class="flex items-center gap-2 text-sm font-medium text-[#27251e]">
-            <span>📄</span>
-            <span class="font-mono text-xs">{{ previewFilename() }}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            @if (previewFilename(); as fname) {
-              <button
-                type="button"
-                class="btn-modal-download h-7 px-3 rounded-full bg-white border border-[#d1d1cd] text-xs font-medium text-[#27251e] hover:bg-[#e8e6e1] flex items-center gap-1 transition-colors cursor-pointer"
-                (click)="downloadPdf(fname)"
-              >
-                <span>⬇️</span>
-                <span>Download</span>
-              </button>
-            }
-            <button
-              type="button"
-              class="close-modal-btn w-7 h-7 rounded-full bg-white border border-[#d1d1cd] text-xs font-medium text-[#72706b] hover:bg-[#e8e6e1] hover:text-[#27251e] flex items-center justify-center transition-colors cursor-pointer"
-              (click)="closePdfViewer()"
-              aria-label="Close PDF viewer"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-        <div class="pdf-modal-body flex-1 w-full h-full bg-[#f0eeea] overflow-hidden">
-          <iframe [src]="previewPdfUrl()" class="w-full h-full border-0" title="PDF Document Viewer"></iframe>
-        </div>
-      </div>
-    </div>
+  <!-- PDF Canvas Preview Modal with Zoom & Annotation Controls -->
+  @if (activePdfBlob()) {
+    <app-pdf-viewer-modal
+      [pdfBlob]="activePdfBlob()"
+      [filename]="previewFilename() || 'document.pdf'"
+      (closeModal)="closePdfViewer()"
+      (download)="downloadPdf($event)"
+    ></app-pdf-viewer-modal>
   }
 </div>

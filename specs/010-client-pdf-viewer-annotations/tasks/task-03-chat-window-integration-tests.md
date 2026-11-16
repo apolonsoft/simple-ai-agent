@@ -1,6 +1,6 @@
 ### Task 03: Integrate PdfViewerModalComponent into ChatWindow and Add Vitest Tests
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Replace the native `<iframe>` PDF preview modal in `ChatWindowComponent` with the newly created `PdfViewerModalComponent`. Wire the blob stream from `ChatService` into the modal component, connect download and close events, and update the Vitest test suite to verify end-to-end integration.

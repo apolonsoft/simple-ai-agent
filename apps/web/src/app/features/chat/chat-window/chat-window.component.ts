@@ -11,21 +11,20 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ChatMessage, ToolCall } from '../../../core/models/chat.model';
 import { ChatService } from '../../../core/services/chat.service';
 import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
+import { PdfViewerModalComponent } from '../pdf-viewer-modal/pdf-viewer-modal.component';
 
 @Component({
   selector: 'app-chat-window',
   standalone: true,
-  imports: [CommonModule, FormsModule, MarkdownPipe],
+  imports: [CommonModule, FormsModule, MarkdownPipe, PdfViewerModalComponent],
   templateUrl: './chat-window.component.html',
   styleUrl: './chat-window.component.scss',
 })
 export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   private readonly chatService = inject(ChatService);
-  private readonly sanitizer = inject(DomSanitizer);
 
   @ViewChild('messagesContainer') private messagesContainer?: ElementRef<HTMLDivElement>;
   @ViewChild('scrollAnchor') private scrollAnchor?: ElementRef<HTMLDivElement>;
@@ -40,9 +39,8 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   readonly isExecutingTool = this.chatService.isExecutingTool;
   readonly streamError = this.chatService.streamError;
 
-  readonly previewPdfUrl = signal<SafeResourceUrl | null>(null);
+  readonly activePdfBlob = signal<Blob | null>(null);
   readonly previewFilename = signal<string | null>(null);
-  private rawBlobUrl: string | null = null;
 
   promptText: string = '';
   private observer?: MutationObserver;
@@ -167,13 +165,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   openPdfViewer(filename: string): void {
     this.chatService.getPdfBlob(filename).subscribe({
       next: (blob) => {
-        if (this.rawBlobUrl) {
-          URL.revokeObjectURL(this.rawBlobUrl);
-        }
-        this.rawBlobUrl = URL.createObjectURL(blob);
-        this.previewPdfUrl.set(
-          this.sanitizer.bypassSecurityTrustResourceUrl(this.rawBlobUrl)
-        );
+        this.activePdfBlob.set(blob);
         this.previewFilename.set(filename);
       },
       error: (err) => {
@@ -183,11 +175,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   }
 
   closePdfViewer(): void {
-    if (this.rawBlobUrl) {
-      URL.revokeObjectURL(this.rawBlobUrl);
-      this.rawBlobUrl = null;
-    }
-    this.previewPdfUrl.set(null);
+    this.activePdfBlob.set(null);
     this.previewFilename.set(null);
   }
 

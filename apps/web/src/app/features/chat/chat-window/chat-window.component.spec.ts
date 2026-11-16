@@ -279,15 +279,15 @@ describe('ChatWindowComponent', () => {
     expect(mockChatService.getPdfBlob).toHaveBeenCalledWith('architecture_report.pdf');
 
     fixture.detectChanges();
-    const modal = compiled.querySelector('.pdf-modal-backdrop');
+    const modal = compiled.querySelector('app-pdf-viewer-modal');
     expect(modal).toBeTruthy();
     expect(modal?.textContent).toContain('architecture_report.pdf');
 
     // Close Modal
-    const closeBtn = modal?.querySelector('.close-modal-btn') as HTMLButtonElement;
+    const closeBtn = modal?.querySelector('.btn-close') as HTMLButtonElement;
     closeBtn.click();
     fixture.detectChanges();
-    expect(compiled.querySelector('.pdf-modal-backdrop')).toBeFalsy();
+    expect(compiled.querySelector('app-pdf-viewer-modal')).toBeFalsy();
   });
 
   it('should trigger download when Download button is clicked', () => {
