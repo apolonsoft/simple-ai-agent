@@ -1,6 +1,6 @@
 ### Task 04: Integration Tests & Monorepo Verification
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Write comprehensive pytest integration tests in `apps/api/app/tests/test_admin_api.py` validating all permissions, role hierarchy restrictions, self-action guardrails, search/filter queries, Redis session invalidation on ban, and unban restoration.
