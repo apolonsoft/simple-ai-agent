@@ -8,6 +8,7 @@ import {
   ElementRef,
   AfterViewInit,
   OnDestroy,
+  HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -41,6 +42,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
 
   readonly activePdfBlob = signal<Blob | null>(null);
   readonly previewFilename = signal<string | null>(null);
+  readonly isToolsMenuOpen = signal<boolean>(false);
 
   promptText: string = '';
   private observer?: MutationObserver;
@@ -195,6 +197,22 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
         console.error('Failed to download PDF', err);
       },
     });
+  }
+
+  toggleToolsMenu(): void {
+    this.isToolsMenuOpen.update((open) => !open);
+  }
+
+  closeToolsMenu(): void {
+    this.isToolsMenuOpen.set(false);
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.tools-trigger-container')) {
+      this.closeToolsMenu();
+    }
   }
 
   onMessagesClick(event: MouseEvent): void {

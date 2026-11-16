@@ -320,4 +320,32 @@ describe('ChatWindowComponent', () => {
     downloadBtn.click();
     expect(mockChatService.getPdfBlob).toHaveBeenCalledWith('merged_doc.pdf');
   });
+
+  it('should toggle active tools popover displaying PDF MCP tools', () => {
+    fixture.componentRef.setInput('sessionId', 'session-42');
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.tools-popover')).toBeFalsy();
+
+    const toggleBtn = compiled.querySelector('.btn-tools-toggle') as HTMLButtonElement;
+    expect(toggleBtn).toBeTruthy();
+    toggleBtn.click();
+    fixture.detectChanges();
+
+    const popover = compiled.querySelector('.tools-popover');
+    expect(popover).toBeTruthy();
+    expect(popover?.textContent).toContain('PDF MCP Server');
+    expect(popover?.textContent).toContain('create_pdf');
+    expect(popover?.textContent).toContain('inspect_pdf');
+    expect(popover?.textContent).toContain('merge_pdfs');
+    expect(popover?.textContent).toContain('Tavily Web Search');
+    expect(popover?.textContent).toContain('Calculator');
+
+    // Click selector button to toggle close
+    const selectorBtn = compiled.querySelector('.btn-tools-selector') as HTMLButtonElement;
+    selectorBtn.click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('.tools-popover')).toBeFalsy();
+  });
 });
