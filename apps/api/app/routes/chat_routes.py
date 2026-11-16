@@ -1,11 +1,14 @@
 # app/routes/chat_routes.py
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
 from app.controllers.chat_controller import ChatController
+from app.core.config import settings
 from app.core.dependencies import get_current_user
 from app.core.rate_limiter import RateLimiter
 from app.db.session import get_db, get_session_factory
@@ -185,3 +188,60 @@ async def handle_tool_approval(
         message_id=approval_in.message_id,
     )
     return EventSourceResponse(generator)
+
+
+def _get_pdf_dir() -> str:
+    base_dir = getattr(settings, "MCP_PDF_DIR", "outputs/pdfs")
+    if not os.path.isabs(base_dir):
+        current_file_dir = os.path.dirname(os.path.abspath(__file__))
+        api_root = os.path.abspath(os.path.join(current_file_dir, "..", ".."))
+        base_dir = os.path.join(api_root, base_dir)
+    os.makedirs(base_dir, exist_ok=True)
+    return os.path.realpath(base_dir)
+
+
+@router.get(
+    "/files/pdf/{filename}",
+    dependencies=[
+        Depends(
+            RateLimiter(max_requests=60, window_seconds=60, scope="chat:pdf-download")
+        )
+    ],
+)
+async def download_pdf_file(
+    filename: str,
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Download a generated PDF document by filename with traversal protection.
+
+    Requires user authentication.
+    """
+    safe_name = os.path.basename(filename).strip()
+    if not safe_name.lower().endswith(".pdf") or safe_name != filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid PDF filename requested.",
+        )
+
+    pdf_dir = _get_pdf_dir()
+    file_path = os.path.realpath(os.path.join(pdf_dir, safe_name))
+
+    try:
+        common = os.path.commonpath([pdf_dir, file_path])
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file path.",
+        ) from None
+
+    if common != pdf_dir or not os.path.isfile(file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PDF document not found.",
+        )
+
+    return FileResponse(
+        path=file_path,
+        media_type="application/pdf",
+        filename=safe_name,
+    )

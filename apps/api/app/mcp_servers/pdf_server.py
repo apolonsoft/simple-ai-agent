@@ -101,9 +101,7 @@ def create_pdf(
         if title:
             pdf.set_font("Helvetica", "B", 18)
             pdf.set_text_color(25, 30, 36)
-            pdf.multi_cell(
-                0, 10, text=title, align="L", new_x="LMARGIN", new_y="NEXT"
-            )
+            pdf.multi_cell(0, 10, text=title, align="L", new_x="LMARGIN", new_y="NEXT")
             pdf.ln(2)
             # Divider line
             pdf.set_draw_color(210, 215, 220)
@@ -204,6 +202,7 @@ def create_pdf(
             "status": "success",
             "file_path": target_path,
             "filename": safe_filename,
+            "download_url": f"/api/v1/chats/files/pdf/{safe_filename}",
             "page_count": page_count,
             "file_size_bytes": file_size,
         }
@@ -263,6 +262,7 @@ def merge_pdfs(
             "status": "success",
             "merged_file_path": target_path,
             "filename": safe_filename,
+            "download_url": f"/api/v1/chats/files/pdf/{safe_filename}",
             "total_pages": total_pages,
             "source_files_count": valid_count,
             "file_size_bytes": file_size,
@@ -316,9 +316,7 @@ def inspect_pdf(file_path: str) -> str:
         return json.dumps(result)
     except Exception as exc:
         logger.exception("Failed to inspect PDF")
-        return json.dumps(
-            {"status": "error", "error": f"Failed to inspect PDF: {exc}"}
-        )
+        return json.dumps({"status": "error", "error": f"Failed to inspect PDF: {exc}"})
 
 
 if __name__ == "__main__":
