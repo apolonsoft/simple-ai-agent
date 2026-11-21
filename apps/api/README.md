@@ -59,6 +59,39 @@ python -m app.mcp_servers.tavily_server
 
 ---
 
+## Administrator & User Management API
+
+The platform implements a three-tier role-based access control (RBAC) hierarchy:
+- **`user`** (Default): Standard platform user. Can create and manage own chat sessions, profile, and tools.
+- **`admin`**: Administrative operator. Can view directory of registered users, inspect detailed account usage metrics, ban abusive accounts, and unban accounts.
+- **`super_admin`**: Super administrator. Full governance access. Can ban/unban users and regular admins, and promote or demote user roles (`user`, `admin`, `super_admin`) with self-demotion prevention guardrails.
+
+### Endpoints (`/api/v1/admin/users`)
+
+| Method | Path | Auth Required | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/admin/users` | `admin`, `super_admin` | Paginated user directory with search (`search`), role filter (`role`), and status filter (`status`). |
+| `GET` | `/api/v1/admin/users/{user_id}` | `admin`, `super_admin` | Detailed user inspection including `chat_sessions_count`, avatar, bio, and ban reason. |
+| `POST` | `/api/v1/admin/users/{user_id}/ban` | `admin`, `super_admin` | Bans account with optional `reason`. Immediately invalidates active JWT tokens in Redis. |
+| `POST` | `/api/v1/admin/users/{user_id}/unban` | `admin`, `super_admin` | Restores account access. |
+| `PATCH` | `/api/v1/admin/users/{user_id}/role` | `super_admin` strictly | Updates user role to `user`, `admin`, or `super_admin`. Self-demotion prohibited. |
+
+### CLI Management Utilities
+Create or promote administrators directly from the terminal:
+```bash
+# Create a new administrator:
+apps/api/.venv/bin/python scripts/manage_admin.py create --email admin@example.com --password secret --role admin
+
+# Promote an existing user to super_admin:
+apps/api/.venv/bin/python scripts/manage_admin.py promote --email myuser@example.com --role super_admin
+
+# List all platform administrators:
+apps/api/.venv/bin/python scripts/manage_admin.py list
+```
+*(Or from the monorepo root: `make admin-create EMAIL=... PASSWORD=... ROLE=...`, `make admin-promote EMAIL=... ROLE=...`, `make admin-list`)*
+
+---
+
 ## Running Tests
 
 Run the full pytest suite including MCP client and server tests:

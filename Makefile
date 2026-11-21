@@ -1,4 +1,4 @@
-.PHONY: help up down logs verify test-api dev-api dev-mcp-pdf migrate migrations run-migrations run dev-web test-web build-web test-all benchmark lint lint-api format format-api typecheck-api
+.PHONY: help up down logs verify test-api dev-api dev-mcp-pdf migrate migrations run-migrations run dev-web test-web build-web test-all benchmark lint lint-api format format-api typecheck-api admin-create admin-promote admin-list
 
 help:
 	@echo "Available commands:"
@@ -14,6 +14,9 @@ help:
 	@echo "  make test-api         - Run FastAPI test suite (Pytest)"
 	@echo "  make dev-api          - Run FastAPI backend development server"
 	@echo "  make dev-mcp-pdf      - Run standalone PDF MCP server on port 8002"
+	@echo "  make admin-create     - Create an admin user (EMAIL=... PASSWORD=... ROLE=admin|super_admin)"
+	@echo "  make admin-promote    - Promote user to admin (EMAIL=... ROLE=admin|super_admin)"
+	@echo "  make admin-list       - List all admin/super_admin users"
 	@echo "  make migrate          - Apply database migrations with Alembic"
 	@echo "  make run migrations   - Apply database migrations with Alembic (alias)"
 	@echo "  make dev-web          - Run Angular development server (pnpm start with proxy)"
@@ -79,3 +82,14 @@ test-all: test-api test-web
 # High-concurrency benchmark load test
 benchmark:
 	apps/api/.venv/bin/python scripts/benchmark_concurrency.py
+
+# Administrator management utilities
+admin-create:
+	apps/api/.venv/bin/python scripts/manage_admin.py create --email $(EMAIL) --password $(PASSWORD) --role $(or $(ROLE),admin)
+
+admin-promote:
+	apps/api/.venv/bin/python scripts/manage_admin.py promote --email $(EMAIL) --role $(or $(ROLE),super_admin)
+
+admin-list:
+	apps/api/.venv/bin/python scripts/manage_admin.py list
+
