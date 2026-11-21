@@ -1,0 +1,27 @@
+# Tasks Checklist: Backend Audit Remediation
+
+Execute one task at a time (see `.agent/rules/task-by-task.md`). Each task links to the lesson that explains it.
+
+- [ ] Task 01: Refactor session revocation into one module (`tasks/task-01-refactor-session-revocation.md`)
+- [ ] Task 02: Block role mass assignment and enforce password policy (`tasks/task-02-block-role-mass-assignment.md`)
+- [ ] Task 03: Release DB connections before SSE streaming (`tasks/task-03-release-db-before-streaming.md`)
+- [ ] Task 04: Replace cascading eager loads with explicit loading (`tasks/task-04-explicit-orm-loading.md`)
+- [ ] Task 05: Authorize and lock tool-call approvals (`tasks/task-05-tool-approval-authorization.md`)
+- [ ] Task 06: Sandbox PDF tool file access (`tasks/task-06-sandbox-pdf-tools.md`)
+- [ ] Task 07: Restrict PDF downloads to the owner (`tasks/task-07-pdf-download-ownership.md`)
+- [ ] Task 08: Move blocking work off the event loop (`tasks/task-08-offload-blocking-work.md`)
+- [ ] Task 09: Trust only real client IPs and make rate limiting atomic (`tasks/task-09-rate-limiter-ip-and-atomicity.md`)
+- [ ] Task 10: Refuse to start with a default secret key (`tasks/task-10-secret-key-guard.md`)
+- [ ] Task 11: Move token revocation to PostgreSQL (`tasks/task-11-db-token-revocation.md`)
+- [ ] Task 12: Enforce hierarchy on unban (`tasks/task-12-unban-hierarchy.md`)
+- [ ] Task 13: Harden the Redis connection pool (`tasks/task-13-redis-pool-hardening.md`)
+- [ ] Task 14: Make the chat cache an atomic bounded list (`tasks/task-14-atomic-chat-cache.md`)
+- [ ] Task 15: Accept JWTs only from the Authorization header (`tasks/task-15-header-only-jwt.md`)
+- [ ] Task 16: Bound chat queries with pagination and windowed context (`tasks/task-16-bounded-chat-queries.md`)
+- [ ] Task 17: Bound avatar uploads (`tasks/task-17-bounded-avatar-upload.md`)
+- [ ] Task 18: Remove account-enumeration timing signals (`tasks/task-18-enumeration-timing.md`)
+- [ ] Task 19: Cache MCP tool definitions (`tasks/task-19-cache-mcp-tools.md`)
+- [ ] Task 20: Input limits and error hygiene (`tasks/task-20-input-limits-error-hygiene.md`)
+- [ ] Task 21: Gemini key header and admin search escaping (`tasks/task-21-gemini-header-search-escape.md`)
+- [ ] Task 22: Persist partial replies on client disconnect (`tasks/task-22-disconnect-safe-persistence.md`)
+- [ ] Task 23: Docs, shared contracts and full verification (`tasks/task-23-docs-contracts-verification.md`)
