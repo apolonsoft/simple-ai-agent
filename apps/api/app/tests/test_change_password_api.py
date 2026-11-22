@@ -154,13 +154,13 @@ async def test_change_password_same_password_rejected(client: httpx.AsyncClient)
 
 @pytest.mark.asyncio
 async def test_change_password_length_validation(client: httpx.AsyncClient):
-    """New password shorter than 6 characters must fail schema validation with 422."""
+    """New password shorter than 8 characters must fail schema validation with 422."""
     token = await get_auth_token(client, "short_pw_user@example.com", "mypassword123")
     headers = {"Authorization": f"Bearer {token}"}
 
     res = await client.post(
         "/api/v1/auth/change-password",
-        json={"current_password": "mypassword123", "new_password": "123"},
+        json={"current_password": "mypassword123", "new_password": "1234567"},
         headers=headers,
     )
     assert res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

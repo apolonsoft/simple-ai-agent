@@ -5,6 +5,8 @@ import httpx
 import pytest
 from fastapi import status
 
+from app.tests.conftest import make_user_helper
+
 
 async def create_user_and_token(
     client: httpx.AsyncClient,
@@ -13,32 +15,14 @@ async def create_user_and_token(
     password: str = "password123",
     full_name: str | None = None,
 ) -> tuple[dict, str]:
-    """Helper to register a user and return the user profile dict and JWT token."""
-    res = await client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "password": password, "role": role},
+    """Helper to insert a user directly via DB and return the user profile dict and JWT token."""
+    return await make_user_helper(
+        client=client,
+        email=email,
+        role=role,
+        password=password,
+        full_name=full_name,
     )
-    assert res.status_code == status.HTTP_201_CREATED
-    user_data = res.json()
-
-    # Update profile name if provided
-    login_res = await client.post(
-        "/api/v1/auth/login",
-        data={"username": email, "password": password},
-    )
-    assert login_res.status_code == status.HTTP_200_OK
-    token = login_res.json()["access_token"]
-
-    if full_name:
-        patch_res = await client.patch(
-            "/api/v1/users/me",
-            json={"full_name": full_name},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert patch_res.status_code == status.HTTP_200_OK
-        user_data = patch_res.json()
-
-    return user_data, token
 
 
 @pytest.mark.asyncio

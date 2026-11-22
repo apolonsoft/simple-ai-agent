@@ -24,7 +24,7 @@ export class ResetPasswordComponent implements OnInit {
   token = '';
 
   readonly resetForm: FormGroup = this.fb.group({
-    newPassword: ['', [Validators.required, Validators.minLength(4)]],
+    newPassword: ['', [Validators.required, Validators.minLength(8)]],
   });
 
   ngOnInit(): void {

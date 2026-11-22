@@ -47,13 +47,13 @@
           id="password"
           type="password"
           formControlName="password"
-          placeholder="At least 6 characters"
+          placeholder="At least 8 characters"
           class="h-10 w-full px-3.5 bg-white border border-[#d1d1cd] rounded-xl text-sm text-[#27251e] placeholder-[#92918b] focus:outline-none focus:border-[#27251e] focus:ring-1 focus:ring-[#27251e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all box-border"
           [class.border-red-400]="isFieldInvalid('password')"
           [class.input-error]="isFieldInvalid('password')"
         />
         @if (isFieldInvalid('password')) {
-          <span class="field-error text-[11px] text-red-500 mt-0.5">Password must be at least 6 characters long.</span>
+          <span class="field-error text-[11px] text-red-500 mt-0.5">Password must be at least 8 characters long.</span>
         }
       </div>
 

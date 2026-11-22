@@ -4,11 +4,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 128
+
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str
-    role: str = "user"
+    password: str = Field(
+        min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH
+    )
 
 
 class UserResponse(BaseModel):
@@ -36,13 +40,17 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(
+        min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH
+    )
 
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(
-        min_length=6, description="New password, minimum 6 characters"
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+        description=f"New password, minimum {PASSWORD_MIN_LENGTH} characters",
     )
 
 

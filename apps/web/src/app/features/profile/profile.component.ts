@@ -37,7 +37,7 @@ export class ProfileComponent implements OnInit {
   readonly passwordForm: FormGroup = this.fb.group(
     {
       current_password: ['', [Validators.required]],
-      new_password: ['', [Validators.required, Validators.minLength(6)]],
+      new_password: ['', [Validators.required, Validators.minLength(8)]],
       confirm_password: ['', [Validators.required]],
     },
     { validators: this.passwordMatchValidator }

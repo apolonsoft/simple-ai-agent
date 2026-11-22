@@ -1,6 +1,6 @@
 ### Task 02: Block Role Mass Assignment and Enforce Password Policy
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [01 — Never trust the request body](../lessons/lesson-01-trust-boundaries-and-mass-assignment.md)
 

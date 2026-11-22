@@ -33,9 +33,7 @@ class AuthService:
 
     async def register_user(self, user_in: UserCreate) -> UserModel:
         hashed_pw = get_password_hash(user_in.password)
-        user = UserModel(
-            email=user_in.email, hashed_password=hashed_pw, role=user_in.role
-        )
+        user = UserModel(email=user_in.email, hashed_password=hashed_pw, role="user")
         self.db.add(user)
         await self.db.commit()
         await self.db.refresh(user)

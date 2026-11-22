@@ -14,9 +14,7 @@ async def test_register_and_authenticate_user(db_session: AsyncSession):
     service = AuthService(db=db_session)
 
     # 1. Register
-    user_data = UserCreate(
-        email="mentor@example.com", password="securepassword123", role="user"
-    )
+    user_data = UserCreate(email="mentor@example.com", password="securepassword123")
     user = await service.register_user(user_data)
 
     assert user.id is not None
@@ -40,8 +38,11 @@ async def test_register_and_authenticate_user(db_session: AsyncSession):
 async def test_generate_and_decode_token(db_session: AsyncSession):
     service = AuthService(db=db_session)
     user = await service.register_user(
-        UserCreate(email="jwt@example.com", password="pass", role="admin")
+        UserCreate(email="jwt@example.com", password="jwtpassword123")
     )
+    user.role = "admin"
+    await db_session.commit()
+    await db_session.refresh(user)
 
     token = service.generate_token(user)
     assert token is not None

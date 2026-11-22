@@ -2,6 +2,10 @@
 import httpx
 import pytest
 from fastapi import status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.user import UserModel
 
 
 @pytest.mark.asyncio
@@ -90,16 +94,16 @@ async def test_get_me_unauthorized_without_token(client: httpx.AsyncClient):
 
 @pytest.mark.asyncio
 async def test_role_authorization_admin_allowed_and_regular_user_forbidden(
-    client: httpx.AsyncClient,
+    client: httpx.AsyncClient, make_user
 ):
     # 1. Register regular user
     await client.post(
         "/api/v1/auth/register",
-        json={"email": "regular@example.com", "password": "password", "role": "user"},
+        json={"email": "regular@example.com", "password": "password123"},
     )
     user_login = await client.post(
         "/api/v1/auth/login",
-        data={"username": "regular@example.com", "password": "password"},
+        data={"username": "regular@example.com", "password": "password123"},
     )
     user_token = user_login.json()["access_token"]
 
@@ -109,16 +113,10 @@ async def test_role_authorization_admin_allowed_and_regular_user_forbidden(
     )
     assert forbidden_res.status_code == status.HTTP_403_FORBIDDEN
 
-    # 2. Register admin user
-    await client.post(
-        "/api/v1/auth/register",
-        json={"email": "boss@example.com", "password": "password", "role": "admin"},
+    # 2. Register admin user via make_user fixture
+    _, admin_token = await make_user(
+        "boss@example.com", role="admin", password="password123"
     )
-    admin_login = await client.post(
-        "/api/v1/auth/login",
-        data={"username": "boss@example.com", "password": "password"},
-    )
-    admin_token = admin_login.json()["access_token"]
 
     # Admin user accesses admin endpoint -> 200 OK
     allowed_res = await client.get(
@@ -126,3 +124,43 @@ async def test_role_authorization_admin_allowed_and_regular_user_forbidden(
     )
     assert allowed_res.status_code == status.HTTP_200_OK
     assert "Welcome Admin boss@example.com" in allowed_res.json()["message"]
+
+
+@pytest.mark.asyncio
+async def test_register_role_mass_assignment_ignored(
+    client: httpx.AsyncClient, db_session: AsyncSession
+):
+    """Client attempting to register as super_admin must have role forced to 'user' in response and DB."""
+    res = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "attacker@example.com",
+            "password": "securepassword123",
+            "role": "super_admin",
+        },
+    )
+    assert res.status_code == status.HTTP_201_CREATED
+    data = res.json()
+    assert data["role"] == "user"
+
+    stmt = select(UserModel).where(UserModel.email == "attacker@example.com")
+    result = await db_session.scalars(stmt)
+    user = result.first()
+    assert user is not None
+    assert user.role == "user"
+
+
+@pytest.mark.asyncio
+async def test_register_password_length_validation(client: httpx.AsyncClient):
+    """Passwords shorter than 8 characters or longer than 128 characters must fail schema validation."""
+    short_res = await client.post(
+        "/api/v1/auth/register",
+        json={"email": "short@example.com", "password": "short77"},
+    )
+    assert short_res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    long_res = await client.post(
+        "/api/v1/auth/register",
+        json={"email": "long@example.com", "password": "a" * 129},
+    )
+    assert long_res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

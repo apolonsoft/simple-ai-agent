@@ -227,11 +227,11 @@
             id="new_password"
             type="password"
             formControlName="new_password"
-            placeholder="At least 6 characters"
+            placeholder="At least 8 characters"
             class="w-full h-9 px-3 rounded-xl bg-white border border-[#d1d1cd] text-xs text-[#27251e] placeholder:text-[#92918b] focus:outline-none focus:border-[#27251e] transition-colors"
           />
           @if (passwordForm.get('new_password')?.touched && passwordForm.get('new_password')?.hasError('minlength')) {
-            <p class="text-[11px] text-red-600 mt-1">New password must be at least 6 characters.</p>
+            <p class="text-[11px] text-red-600 mt-1">New password must be at least 8 characters.</p>
           }
 
           <!-- 4-segment Password Strength Meter -->
