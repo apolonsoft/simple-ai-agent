@@ -1,10 +1,15 @@
 # app/tests/test_chat_stream.py
+from collections.abc import AsyncGenerator
 from unittest.mock import patch
 
 import httpx
 import pytest
 from fastapi import status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
+from app.db.session import engine, get_db
+from app.main import app as fastapi_app
 from app.providers.base import BaseLLMProvider
 
 
@@ -172,3 +177,97 @@ async def test_stream_unauthorized_and_cross_user_isolation(client: httpx.AsyncC
         headers={"Authorization": f"Bearer {token_b}"},
     )
     assert cross_res.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TransactionCheckingProvider(BaseLLMProvider):
+    """Mock LLM provider that checks whether request-scoped sessions are in an active transaction."""
+
+    def __init__(self, captured_sessions: list[AsyncSession]):
+        self.captured_sessions = captured_sessions
+        self.session_was_in_transaction = None
+        self.pool_checkedout_count = None
+
+    @property
+    def provider_name(self) -> str:
+        return "tx_checker"
+
+    async def generate_stream(
+        self,
+        messages,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs,
+    ):
+        if self.captured_sessions:
+            self.session_was_in_transaction = any(
+                s.in_transaction() for s in self.captured_sessions
+            )
+        try:
+            checkedout_fn = getattr(engine.pool, "checkedout", None)
+            if callable(checkedout_fn):
+                self.pool_checkedout_count = checkedout_fn()
+        except Exception:
+            pass
+        yield "token"
+
+    async def health_check(self) -> bool:
+        return True
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_releases_db_connection_before_streaming(
+    client: httpx.AsyncClient,
+):
+    """Verifies that the request-scoped database session is closed before SSE streaming begins."""
+    token = await get_auth_token(client, "tx_checker@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    session_res = await client.post(
+        "/api/v1/chats", json={"title": "DB Release Test"}, headers=headers
+    )
+    assert session_res.status_code == status.HTTP_201_CREATED
+    session_id = session_res.json()["id"]
+
+    captured_sessions: list[AsyncSession] = []
+    original_get_db = fastapi_app.dependency_overrides.get(get_db)
+
+    async def tracking_get_db() -> AsyncGenerator[AsyncSession, None]:
+        if original_get_db:
+            async for s in original_get_db():
+                captured_sessions.append(s)
+                yield s
+        else:
+            async with AsyncSession(engine) as s:
+                captured_sessions.append(s)
+                yield s
+
+    fastapi_app.dependency_overrides[get_db] = tracking_get_db
+    provider = TransactionCheckingProvider(captured_sessions)
+
+    try:
+        with patch(
+            "app.services.chat_stream_service.get_llm_provider", return_value=provider
+        ):
+            res = await client.post(
+                f"/api/v1/chats/{session_id}/stream",
+                json={"content": "Check DB connection release"},
+                headers=headers,
+            )
+            assert res.status_code == status.HTTP_200_OK
+            assert provider.session_was_in_transaction is False
+    finally:
+        if original_get_db:
+            fastapi_app.dependency_overrides[get_db] = original_get_db
+        else:
+            fastapi_app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_releases_db_connection_postgres():
+    """Assert engine.pool.checkedout() == 0 inside the provider (PostgreSQL only)."""
+    if "sqlite" in settings.DATABASE_URL.lower():
+        pytest.skip("PostgreSQL-only connection pool check")
+
+    checkedout_fn = getattr(engine.pool, "checkedout", None)
+    if callable(checkedout_fn):
+        assert checkedout_fn() == 0

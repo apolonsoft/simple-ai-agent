@@ -1,6 +1,6 @@
 ### Task 03: Release DB Connections Before SSE Streaming
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [02 — Resource lifetimes: connections, transactions and yield dependencies](../lessons/lesson-02-resource-lifetimes.md)
 

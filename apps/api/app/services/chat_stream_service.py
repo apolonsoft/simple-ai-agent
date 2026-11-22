@@ -238,6 +238,7 @@ class ChatStreamService:
         - If approved: executes the tool (e.g. calculator), yields tool result,
           then streams follow-up LLM response incorporating the tool output.
         """
+        # Phase 1: Verify session and extract tool call data
         async with self.session_factory() as db:
             chat_service = ChatService(db, cache_service=self.cache_service)
             session = await chat_service.get_session(session_id, user_id)
@@ -282,8 +283,9 @@ class ChatStreamService:
                 }
                 return
 
-            # Identify tool name
+            target_msg_id = target_msg.id
             tool_name = tc.get("tool") or "unknown_tool"
+            tool_args = tc.get("arguments", {})
 
             if not approved:
                 # User rejected tool execution
@@ -317,36 +319,39 @@ class ChatStreamService:
                     "event": "done",
                     "data": json.dumps(
                         {
-                            "message_id": str(target_msg.id),
+                            "message_id": str(target_msg_id),
                             "status": "completed",
                         }
                     ),
                 }
                 return
 
-            # User approved tool execution -> execute tool!
-            tool_args = tc.get("arguments", {})
-            try:
-                # Check if tool is provided by MCP server
-                mcp_tools = await mcp_client.get_tool_definitions()
-                mcp_names = {t.get("function", {}).get("name") for t in mcp_tools}
-                if tool_name in mcp_names:
-                    tool_result = await mcp_client.call_tool(tool_name, tool_args)
-                else:
-                    tool_result = execute_tool(tool_name, tool_args)
-                tool_error = None
-            except Exception as exc:
-                tool_result = None
-                tool_error = str(exc)
+        # Phase 2 (Tool execution): No DB session held
+        try:
+            mcp_tools = await mcp_client.get_tool_definitions()
+            mcp_names = {t.get("function", {}).get("name") for t in mcp_tools}
+            if tool_name in mcp_names:
+                tool_result = await mcp_client.call_tool(tool_name, tool_args)
+            else:
+                tool_result = execute_tool(tool_name, tool_args)
+            tool_error = None
+        except Exception as exc:
+            tool_result = None
+            tool_error = str(exc)
 
-            final_val = tool_result if tool_error is None else f"Error: {tool_error}"
+        final_val = tool_result if tool_error is None else f"Error: {tool_error}"
 
-            await chat_service.update_message_tool_call(
-                message=target_msg,
-                tool_call_id=tool_call_id,
-                status="executed",
-                result=final_val,
-            )
+        # Phase 3 (Session B): Update message and prepare LLM prompt
+        async with self.session_factory() as db:
+            chat_service = ChatService(db, cache_service=self.cache_service)
+            msg_to_update = await db.get(ChatMessageModel, target_msg_id)
+            if msg_to_update:
+                await chat_service.update_message_tool_call(
+                    message=msg_to_update,
+                    tool_call_id=tool_call_id,
+                    status="executed",
+                    result=final_val,
+                )
 
             prior_history = await chat_service.get_messages(session_id, user_id) or []
             llm_messages = self.memory_manager.build_context(
@@ -397,7 +402,7 @@ class ChatStreamService:
             try:
                 async with self.session_factory() as db:
                     chat_service = ChatService(db, cache_service=self.cache_service)
-                    msg_to_update = await db.get(ChatMessageModel, target_msg.id)
+                    msg_to_update = await db.get(ChatMessageModel, target_msg_id)
                     if msg_to_update:
                         await chat_service.update_message_tool_call(
                             message=msg_to_update,
@@ -414,7 +419,7 @@ class ChatStreamService:
             "event": "done",
             "data": json.dumps(
                 {
-                    "message_id": str(target_msg.id),
+                    "message_id": str(target_msg_id),
                     "status": "completed",
                 }
             ),

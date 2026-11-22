@@ -145,9 +145,12 @@ async def stream_chat_response(
             detail="Chat session not found.",
         )
 
+    user_id = current_user.id
+    await db.close()
+
     generator = stream_service.stream_chat(
         session_id=session_id,
-        user_id=current_user.id,
+        user_id=user_id,
         user_content=message_in.content,
     )
     return EventSourceResponse(generator)
@@ -180,9 +183,12 @@ async def handle_tool_approval(
             detail="Chat session not found.",
         )
 
+    user_id = current_user.id
+    await db.close()
+
     generator = stream_service.stream_tool_approval(
         session_id=session_id,
-        user_id=current_user.id,
+        user_id=user_id,
         tool_call_id=approval_in.tool_call_id,
         approved=approval_in.approved,
         message_id=approval_in.message_id,
