@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.chat import ChatMessageModel, ChatSessionModel
 
@@ -55,6 +56,23 @@ class ChatService:
         stmt = select(ChatSessionModel).where(
             ChatSessionModel.id == session_id,
             ChatSessionModel.user_id == user_id,
+        )
+        result = await self.db.scalars(stmt)
+        return result.first()
+
+    async def get_session_with_messages(
+        self,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> ChatSessionModel | None:
+        """Fetches a session strictly verifying user ownership and eagerly loading messages."""
+        stmt = (
+            select(ChatSessionModel)
+            .options(selectinload(ChatSessionModel.messages))
+            .where(
+                ChatSessionModel.id == session_id,
+                ChatSessionModel.user_id == user_id,
+            )
         )
         result = await self.db.scalars(stmt)
         return result.first()

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.models.user import UserModel
 from app.providers.base import BaseLLMProvider
 from app.services.chat_cache_service import ChatCacheService
 from app.services.chat_service import ChatService
@@ -171,7 +172,16 @@ async def test_stream_chat_redis_cache_hit_bypasses_postgres_get_messages(db_ses
     ChatStreamService injects cached history into context without querying
     chat_service.get_messages from PostgreSQL.
     """
-    user_id = uuid.uuid4()
+    user = UserModel(
+        id=uuid.uuid4(),
+        email=f"cache_{uuid.uuid4().hex[:6]}@example.com",
+        hashed_password="hashed_password",
+        role="user",
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    user_id = user.id
     mock_redis = InMemorySimpleRedis()
     cache_service = ChatCacheService(redis_client=cast(Any, mock_redis))
 
@@ -232,7 +242,16 @@ async def test_stream_chat_redis_cache_hit_bypasses_postgres_get_messages(db_ses
 
 @pytest.mark.asyncio
 async def test_delete_session_invalidates_redis_cache(db_session):
-    user_id = uuid.uuid4()
+    user = UserModel(
+        id=uuid.uuid4(),
+        email=f"cache_{uuid.uuid4().hex[:6]}@example.com",
+        hashed_password="hashed_password",
+        role="user",
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    user_id = user.id
     mock_redis = InMemorySimpleRedis()
     cache_service = ChatCacheService(redis_client=cast(Any, mock_redis))
 

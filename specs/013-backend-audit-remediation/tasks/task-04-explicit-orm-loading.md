@@ -1,6 +1,6 @@
 ### Task 04: Replace Cascading Eager Loads with Explicit Loading
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [03 — What your ORM does behind your back](../lessons/lesson-03-orm-loading-strategies.md)
 

@@ -44,7 +44,8 @@ class UserModel(Base, TimestampMixin):
         "ChatSessionModel",
         back_populates="user",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        passive_deletes=True,
+        lazy="raise",
     )
 
     # Relationship to password reset requests
@@ -52,5 +53,5 @@ class UserModel(Base, TimestampMixin):
         "PasswordResetModel",
         back_populates="user",
         cascade="all, delete-orphan",
-        lazy="selectin",
+        lazy="raise",
     )

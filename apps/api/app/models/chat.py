@@ -30,8 +30,9 @@ class ChatSessionModel(Base, TimestampMixin):
         "ChatMessageModel",
         back_populates="session",
         cascade="all, delete-orphan",
+        passive_deletes=True,
         order_by="ChatMessageModel.created_at",
-        lazy="selectin",
+        lazy="raise",
     )
 
 

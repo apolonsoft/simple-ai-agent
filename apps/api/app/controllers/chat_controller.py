@@ -39,7 +39,7 @@ class ChatController:
         session_id: uuid.UUID,
         user_id: uuid.UUID,
     ) -> ChatSessionDetailResponse:
-        session = await self.service.get_session(session_id, user_id)
+        session = await self.service.get_session_with_messages(session_id, user_id)
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
