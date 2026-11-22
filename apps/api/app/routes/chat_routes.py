@@ -217,10 +217,11 @@ def _get_pdf_dir() -> str:
 async def download_pdf_file(
     filename: str,
     current_user: UserModel = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Download a generated PDF document by filename with traversal protection.
+    """Download a generated PDF document by filename with traversal and ownership protection.
 
-    Requires user authentication.
+    Requires user authentication and verifies that the file belongs to the user.
     """
     safe_name = os.path.basename(filename).strip()
     if not safe_name.lower().endswith(".pdf") or safe_name != filename:
@@ -241,6 +242,14 @@ async def download_pdf_file(
         ) from None
 
     if common != pdf_dir or not os.path.isfile(file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PDF document not found.",
+        )
+
+    chat_service = ChatService(db)
+    owns_file = await chat_service.user_owns_generated_file(current_user.id, safe_name)
+    if not owns_file:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="PDF document not found.",

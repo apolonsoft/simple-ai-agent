@@ -229,3 +229,17 @@ class ChatService:
             await self.cache_service.invalidate(message.session_id)
 
         return message
+
+    async def user_owns_generated_file(self, user_id: uuid.UUID, filename: str) -> bool:
+        """Checks if a generated PDF belongs to one of the user's chat sessions."""
+        stmt = (
+            select(ChatMessageModel.id)
+            .join(ChatSessionModel, ChatMessageModel.session_id == ChatSessionModel.id)
+            .where(
+                ChatSessionModel.user_id == user_id,
+                ChatMessageModel.tool_calls.contains(filename, autoescape=True),
+            )
+            .limit(1)
+        )
+        result = await self.db.scalar(stmt)
+        return result is not None

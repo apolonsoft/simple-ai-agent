@@ -21,6 +21,42 @@ async def get_auth_token(
     return login_res.json()["access_token"]
 
 
+async def associate_file_with_user(
+    client: httpx.AsyncClient, token: str, filename: str
+) -> None:
+    """Helper to record an executed create_pdf tool call in user's chat message."""
+    import uuid
+
+    from app.core.dependencies import decode_access_token
+    from app.services.chat_service import ChatService
+    from app.tests.conftest import TestingAsyncSessionLocal
+
+    headers = {"Authorization": f"Bearer {token}"}
+    sess_res = await client.post(
+        "/api/v1/chats", json={"title": "PDF Session"}, headers=headers
+    )
+    session_id = sess_res.json()["id"]
+
+    payload = decode_access_token(token)
+    assert payload is not None
+    user_id = uuid.UUID(payload["sub"])
+    async with TestingAsyncSessionLocal() as session:
+        chat_service = ChatService(session)
+        msg = await chat_service.add_message(
+            session_id=uuid.UUID(session_id),
+            user_id=user_id,
+            role="assistant",
+            content="Generated PDF report",
+        )
+        assert msg is not None
+        await chat_service.update_message_tool_call(
+            message=msg,
+            tool_call_id=f"call_{uuid.uuid4().hex[:8]}",
+            status="executed",
+            result=json.dumps({"filename": filename}),
+        )
+
+
 @pytest.mark.asyncio
 async def test_download_pdf_unauthenticated(client: httpx.AsyncClient):
     """Verify that file download endpoint rejects unauthenticated requests with 401."""
@@ -79,6 +115,9 @@ async def test_download_pdf_success(client: httpx.AsyncClient):
     assert "download_url" in data
     filename = data["filename"]
 
+    # Record ownership in user's chat message
+    await associate_file_with_user(client, token, filename)
+
     # Download file via API
     download_res = await client.get(
         f"/api/v1/chats/files/pdf/{filename}", headers=headers
@@ -107,6 +146,9 @@ async def test_download_pdf_success_via_query_param(client: httpx.AsyncClient):
     assert data["status"] == "success"
     filename = data["filename"]
 
+    # Record ownership in user's chat message
+    await associate_file_with_user(client, token, filename)
+
     # Request with ?token= query parameter and NO Authorization header
     download_res = await client.get(f"/api/v1/chats/files/pdf/{filename}?token={token}")
     assert download_res.status_code == status.HTTP_200_OK
@@ -116,3 +158,88 @@ async def test_download_pdf_success_via_query_param(client: httpx.AsyncClient):
     file_path = os.path.join(_get_output_dir(), filename)
     if os.path.exists(file_path):
         os.remove(file_path)
+
+
+@pytest.mark.asyncio
+async def test_download_pdf_cross_user_isolation(client: httpx.AsyncClient):
+    """User A creates a PDF via approved create_pdf; User B requesting filename gets 404; User A gets 200."""
+    from unittest.mock import patch
+
+    from app.tests.test_calculator_tools import MockToolCallingProvider
+
+    token_a = await get_auth_token(client, "user_a_pdf@example.com")
+    token_b = await get_auth_token(client, "user_b_pdf@example.com")
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    sess_res = await client.post(
+        "/api/v1/chats", json={"title": "User A Session"}, headers=headers_a
+    )
+    session_id = sess_res.json()["id"]
+
+    mock_pdf_call = {
+        "type": "tool_call",
+        "name": "create_pdf",
+        "arguments": {
+            "title": "Private Document",
+            "content": "Secret content for user A only.",
+            "filename": "private_doc.pdf",
+        },
+    }
+    mock_provider = MockToolCallingProvider(
+        tool_call_dict=mock_pdf_call,
+        text_after_tool="Your PDF has been generated.",
+    )
+
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        await client.post(
+            f"/api/v1/chats/{session_id}/stream",
+            json={"content": "Generate private pdf"},
+            headers=headers_a,
+        )
+
+    msgs_res = await client.get(
+        f"/api/v1/chats/{session_id}/messages", headers=headers_a
+    )
+    assistant_msg = msgs_res.json()[1]
+    tool_call = assistant_msg["tool_calls"][0]
+
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        await client.post(
+            f"/api/v1/chats/{session_id}/tool-calls/approval",
+            json={
+                "tool_call_id": tool_call["id"],
+                "approved": True,
+                "message_id": assistant_msg["id"],
+            },
+            headers=headers_a,
+        )
+
+    msgs_res2 = await client.get(
+        f"/api/v1/chats/{session_id}/messages", headers=headers_a
+    )
+    updated_assistant_msg = msgs_res2.json()[1]
+    raw_result = updated_assistant_msg["tool_calls"][0]["result"]
+    parsed_result = json.loads(raw_result)
+    filename = parsed_result["filename"]
+
+    try:
+        # User B requests User A's file -> 404
+        res_b = await client.get(
+            f"/api/v1/chats/files/pdf/{filename}", headers=headers_b
+        )
+        assert res_b.status_code == status.HTTP_404_NOT_FOUND
+
+        # User A requests their own file -> 200
+        res_a = await client.get(
+            f"/api/v1/chats/files/pdf/{filename}", headers=headers_a
+        )
+        assert res_a.status_code == status.HTTP_200_OK
+    finally:
+        file_path = os.path.join(_get_output_dir(), filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)

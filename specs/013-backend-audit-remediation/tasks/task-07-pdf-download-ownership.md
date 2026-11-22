@@ -1,6 +1,6 @@
 ### Task 07: Restrict PDF Downloads to the Owner
 
-- [ ] Pending
+- [x] Completed
 
 **Lessons:** [04 — Object-level authorization](../lessons/lesson-04-object-level-authorization.md), [08 — Agent tools are untrusted input](../lessons/lesson-08-sandboxing-agent-tools.md)
 
