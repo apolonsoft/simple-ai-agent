@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.core.redis import get_redis_client
 from app.core.security import create_access_token, get_password_hash, verify_password
+from app.core.session_revocation import revoke_user_sessions
 from app.models.password_reset import PasswordResetModel
 from app.models.user import UserModel
 from app.schemas.user import UserCreate
@@ -155,11 +155,8 @@ class AuthService:
         await self.db.refresh(user)
 
         # Invalidate existing JWT sessions across devices via Redis
-        try:
-            redis = self.redis or await get_redis_client()
-            now_ts = int(datetime.now(timezone.utc).timestamp())
-            ttl_seconds = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            await redis.set(f"revoked_user:{user.id}", now_ts, ex=ttl_seconds)
-        except Exception:
-            # If Redis is temporarily unreachable, database update has already succeeded
-            pass
+        await revoke_user_sessions(
+            user.id,
+            settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            client=self.redis,
+        )

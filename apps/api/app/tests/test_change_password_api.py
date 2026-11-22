@@ -86,15 +86,9 @@ async def test_change_password_revokes_old_session(client: httpx.AsyncClient):
     """Changing password must revoke the active token so subsequent requests fail with 401."""
     fake_redis = AsyncFakeRedis()
 
-    with (
-        patch(
-            "app.core.dependencies.get_redis_client",
-            new=AsyncMock(return_value=fake_redis),
-        ),
-        patch(
-            "app.services.auth_service.get_redis_client",
-            new=AsyncMock(return_value=fake_redis),
-        ),
+    with patch(
+        "app.core.session_revocation.get_redis_client",
+        new=AsyncMock(return_value=fake_redis),
     ):
         token = await get_auth_token(
             client, "revoked_pw_user@example.com", "currentpass123"

@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.redis import get_redis_client
+from app.core.session_revocation import clear_user_revocation, revoke_user_sessions
 from app.models.chat import ChatSessionModel
 from app.models.user import UserModel
 from app.schemas.admin import (
@@ -155,13 +155,7 @@ class AdminService:
         target.ban_reason = reason.strip() if reason else None
 
         # Write session revocation timestamp to Redis
-        try:
-            redis = await get_redis_client()
-            current_ts = int(datetime.now(timezone.utc).timestamp())
-            await redis.set(f"revoked_user:{target_user_id}", current_ts, ex=86400 * 30)
-        except Exception:
-            # Graceful degradation if Redis is unavailable in local dev / tests
-            pass
+        await revoke_user_sessions(target_user_id, 86400 * 30)
 
         await self.db.commit()
         await self.db.refresh(target)
@@ -189,11 +183,7 @@ class AdminService:
         target.ban_reason = None
 
         # Clean up Redis revocation key
-        try:
-            redis = await get_redis_client()
-            await redis.delete(f"revoked_user:{target_user_id}")
-        except Exception:
-            pass
+        await clear_user_revocation(target_user_id)
 
         await self.db.commit()
         await self.db.refresh(target)

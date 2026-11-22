@@ -2,7 +2,7 @@
 
 Execute one task at a time (see `.agent/rules/task-by-task.md`). Each task links to the lesson that explains it.
 
-- [ ] Task 01: Refactor session revocation into one module (`tasks/task-01-refactor-session-revocation.md`)
+- [x] Task 01: Refactor session revocation into one module (`tasks/task-01-refactor-session-revocation.md`)
 - [ ] Task 02: Block role mass assignment and enforce password policy (`tasks/task-02-block-role-mass-assignment.md`)
 - [ ] Task 03: Release DB connections before SSE streaming (`tasks/task-03-release-db-before-streaming.md`)
 - [ ] Task 04: Replace cascading eager loads with explicit loading (`tasks/task-04-explicit-orm-loading.md`)

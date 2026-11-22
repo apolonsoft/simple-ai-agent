@@ -6,8 +6,8 @@ from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.redis import get_redis_client
 from app.core.security import decode_access_token
+from app.core.session_revocation import is_token_revoked
 from app.db.session import get_db
 from app.models.user import UserModel
 
@@ -40,22 +40,12 @@ async def get_current_user(
         raise credentials_exception from None
 
     # Check for distributed session revocation in Redis
-    try:
-        redis = await get_redis_client()
-        revoked_at = await redis.get(f"revoked_user:{user_id}")
-        if revoked_at is not None:
-            token_iat = payload.get("iat")
-            if token_iat is None or int(token_iat) < int(revoked_at):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Session revoked. Please log in again.",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-    except HTTPException:
-        raise
-    except Exception:
-        # Graceful degradation if Redis is temporarily unreachable
-        pass
+    if await is_token_revoked(user_id, payload):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session revoked. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     user = await db.get(UserModel, user_id)
     if not user or not user.is_active:

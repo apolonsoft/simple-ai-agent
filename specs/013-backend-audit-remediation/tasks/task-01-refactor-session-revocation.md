@@ -1,6 +1,6 @@
 ### Task 01: Refactor Session Revocation into One Module
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [07 — Session revocation and fail-open vs fail-closed](../lessons/lesson-07-session-revocation-and-failure-modes.md)
 

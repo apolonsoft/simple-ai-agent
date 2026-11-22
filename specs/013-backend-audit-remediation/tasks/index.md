@@ -2,7 +2,7 @@
 
 | Task ID | Name | Severity | Lesson | Status | Spec File |
 |---|---|---|---|---|---|
-| `task-01` | Refactor session revocation into one module | Refactor | 07 | `Pending` | [`task-01-refactor-session-revocation.md`](./task-01-refactor-session-revocation.md) |
+| `task-01` | Refactor session revocation into one module | Refactor | 07 | `Completed` | [`task-01-refactor-session-revocation.md`](./task-01-refactor-session-revocation.md) |
 | `task-02` | Block role mass assignment and enforce password policy | CRITICAL | 01 | `Pending` | [`task-02-block-role-mass-assignment.md`](./task-02-block-role-mass-assignment.md) |
 | `task-03` | Release DB connections before SSE streaming | CRITICAL | 02 | `Pending` | [`task-03-release-db-before-streaming.md`](./task-03-release-db-before-streaming.md) |
 | `task-04` | Replace cascading eager loads with explicit loading | HIGH | 03 | `Pending` | [`task-04-explicit-orm-loading.md`](./task-04-explicit-orm-loading.md) |
