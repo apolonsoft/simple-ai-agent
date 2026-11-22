@@ -7,10 +7,10 @@ import pytest
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.db.session import engine, get_db
 from app.main import app as fastapi_app
 from app.providers.base import BaseLLMProvider
+from app.tests.conftest import test_engine
 
 
 class MockStreamingProvider(BaseLLMProvider):
@@ -265,7 +265,7 @@ async def test_stream_chat_releases_db_connection_before_streaming(
 @pytest.mark.asyncio
 async def test_stream_chat_releases_db_connection_postgres():
     """Assert engine.pool.checkedout() == 0 inside the provider (PostgreSQL only)."""
-    if "sqlite" in settings.DATABASE_URL.lower():
+    if "sqlite" in test_engine.url.drivername:
         pytest.skip("PostgreSQL-only connection pool check")
 
     checkedout_fn = getattr(engine.pool, "checkedout", None)

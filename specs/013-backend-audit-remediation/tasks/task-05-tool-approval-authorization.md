@@ -1,6 +1,6 @@
 ### Task 05: Authorize and Lock Tool-Call Approvals
 
-- [ ] Pending
+- [x] Completed
 
 **Lessons:** [04 — Object-level authorization](../lessons/lesson-04-object-level-authorization.md), [05 — Check-then-act races](../lessons/lesson-05-check-then-act-races.md)
 

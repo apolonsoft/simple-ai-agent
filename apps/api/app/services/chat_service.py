@@ -138,6 +138,23 @@ class ChatService:
         result = await self.db.scalars(stmt)
         return list(result.all())
 
+    async def get_message_for_update(
+        self,
+        session_id: uuid.UUID,
+        message_id: uuid.UUID,
+    ) -> ChatMessageModel | None:
+        """Finds a message by (id, session_id) with row-level lock (FOR UPDATE)."""
+        stmt = (
+            select(ChatMessageModel)
+            .where(
+                ChatMessageModel.id == message_id,
+                ChatMessageModel.session_id == session_id,
+            )
+            .with_for_update()
+        )
+        result = await self.db.scalars(stmt)
+        return result.first()
+
     async def get_message_by_tool_call_id(
         self,
         session_id: uuid.UUID,

@@ -251,11 +251,17 @@ class ChatStreamService:
 
             target_msg = None
             if message_id:
-                target_msg = await db.get(ChatMessageModel, message_id)
+                target_msg = await chat_service.get_message_for_update(
+                    session_id, message_id
+                )
             if not target_msg:
-                target_msg = await chat_service.get_message_by_tool_call_id(
+                candidate_msg = await chat_service.get_message_by_tool_call_id(
                     session_id, tool_call_id
                 )
+                if candidate_msg:
+                    target_msg = await chat_service.get_message_for_update(
+                        session_id, candidate_msg.id
+                    )
 
             if not target_msg:
                 yield {
@@ -280,6 +286,13 @@ class ChatStreamService:
                     "data": json.dumps(
                         {"error": f"Tool call '{tool_call_id}' not found in message."}
                     ),
+                }
+                return
+
+            if tc.get("status") != "pending":
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"error": "Tool call already processed."}),
                 }
                 return
 
@@ -326,6 +339,13 @@ class ChatStreamService:
                 }
                 return
 
+            # Claim execution as "executing" and commit
+            await chat_service.update_message_tool_call(
+                message=target_msg,
+                tool_call_id=tool_call_id,
+                status="executing",
+            )
+
         # Phase 2 (Tool execution): No DB session held
         try:
             mcp_tools = await mcp_client.get_tool_definitions()
@@ -339,6 +359,7 @@ class ChatStreamService:
             tool_result = None
             tool_error = str(exc)
 
+        final_status = "executed" if tool_error is None else "failed"
         final_val = tool_result if tool_error is None else f"Error: {tool_error}"
 
         # Phase 3 (Session B): Update message and prepare LLM prompt
@@ -349,7 +370,7 @@ class ChatStreamService:
                 await chat_service.update_message_tool_call(
                     message=msg_to_update,
                     tool_call_id=tool_call_id,
-                    status="executed",
+                    status=final_status,
                     result=final_val,
                 )
 
@@ -368,7 +389,7 @@ class ChatStreamService:
             "data": json.dumps(
                 {
                     "tool_call_id": tool_call_id,
-                    "status": "executed",
+                    "status": final_status,
                     "result": final_val,
                 }
             ),

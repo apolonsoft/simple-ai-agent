@@ -11,7 +11,7 @@ class ToolCallSchema(BaseModel):
     id: str
     tool: str
     arguments: dict[str, Any]
-    status: str = "pending"  # "pending" | "approved" | "rejected" | "executed"
+    status: str = "pending"  # "pending" | "approved" | "rejected" | "executed" | "executing" | "failed"
     result: Any | None = None
 
 

@@ -1,4 +1,5 @@
 # app/tests/test_calculator_tools.py
+import asyncio
 from typing import Any, cast
 from unittest.mock import patch
 
@@ -7,6 +8,7 @@ import pytest
 from fastapi import status
 
 from app.providers.base import BaseLLMProvider
+from app.tests.conftest import test_engine
 from app.tools.base import (
     AgentCompletionResponse,
     AgentMessageResponse,
@@ -559,3 +561,184 @@ async def test_create_pdf_tool_calling_flow_with_user_approval(
     finally:
         if generated_file_path and os.path.exists(generated_file_path):
             os.remove(generated_file_path)
+
+
+@pytest.mark.asyncio
+async def test_cross_session_tool_approval_rejected(client: httpx.AsyncClient):
+    """User B approving user A's message_id + tool_call_id against session B yields error, leaving A's message pending."""
+    token_a = await get_auth_token(client, "user_a@example.com")
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+
+    sess_res_a = await client.post(
+        "/api/v1/chats", json={"title": "Session A"}, headers=headers_a
+    )
+    session_a_id = sess_res_a.json()["id"]
+
+    mock_provider = MockToolCallingProvider()
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        await client.post(
+            f"/api/v1/chats/{session_a_id}/stream",
+            json={"content": "What is 12 * 10?"},
+            headers=headers_a,
+        )
+
+    msgs_a = (
+        await client.get(f"/api/v1/chats/{session_a_id}/messages", headers=headers_a)
+    ).json()
+    msg_a = msgs_a[1]
+    tool_call_id = msg_a["tool_calls"][0]["id"]
+    assert msg_a["tool_calls"][0]["status"] == "pending"
+
+    # User B creates session B
+    token_b = await get_auth_token(client, "user_b@example.com")
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+    sess_res_b = await client.post(
+        "/api/v1/chats", json={"title": "Session B"}, headers=headers_b
+    )
+    session_b_id = sess_res_b.json()["id"]
+
+    # User B attempts to approve User A's tool call against session B
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        res = await client.post(
+            f"/api/v1/chats/{session_b_id}/tool-calls/approval",
+            json={
+                "tool_call_id": tool_call_id,
+                "approved": True,
+                "message_id": msg_a["id"],
+            },
+            headers=headers_b,
+        )
+        assert res.status_code == status.HTTP_200_OK
+        assert "event: error" in res.text
+
+    # User A's message must remain unchanged and pending
+    msgs_a_after = (
+        await client.get(f"/api/v1/chats/{session_a_id}/messages", headers=headers_a)
+    ).json()
+    assert msgs_a_after[1]["tool_calls"][0]["status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_replay_tool_approval_rejected(client: httpx.AsyncClient):
+    """Approving the same tool call twice yields an 'already processed' error on the second attempt."""
+    token = await get_auth_token(client, "replay_user@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    sess_res = await client.post(
+        "/api/v1/chats", json={"title": "Replay Session"}, headers=headers
+    )
+    session_id = sess_res.json()["id"]
+
+    mock_provider = MockToolCallingProvider()
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        await client.post(
+            f"/api/v1/chats/{session_id}/stream",
+            json={"content": "What is 12 * 10?"},
+            headers=headers,
+        )
+
+    msgs = (
+        await client.get(f"/api/v1/chats/{session_id}/messages", headers=headers)
+    ).json()
+    msg = msgs[1]
+    tool_call_id = msg["tool_calls"][0]["id"]
+
+    # First approval succeeds
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        res1 = await client.post(
+            f"/api/v1/chats/{session_id}/tool-calls/approval",
+            json={
+                "tool_call_id": tool_call_id,
+                "approved": True,
+                "message_id": msg["id"],
+            },
+            headers=headers,
+        )
+        assert res1.status_code == status.HTTP_200_OK
+        assert "event: tool_result" in res1.text
+        assert "executed" in res1.text
+
+    # Second approval attempt must fail with 'already processed'
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        res2 = await client.post(
+            f"/api/v1/chats/{session_id}/tool-calls/approval",
+            json={
+                "tool_call_id": tool_call_id,
+                "approved": True,
+                "message_id": msg["id"],
+            },
+            headers=headers,
+        )
+        assert res2.status_code == status.HTTP_200_OK
+        assert "event: error" in res2.text
+        assert "already processed" in res2.text
+
+
+@pytest.mark.asyncio
+async def test_concurrent_tool_approvals_execute_at_most_once(
+    client: httpx.AsyncClient,
+):
+    """Two concurrent approvals run tool function at most once (PostgreSQL FOR UPDATE verification)."""
+    if "sqlite" in test_engine.url.drivername:
+        pytest.skip("PostgreSQL-only: SQLite does not support SELECT ... FOR UPDATE")
+
+    token = await get_auth_token(client, "concurrent_approval@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    sess_res = await client.post(
+        "/api/v1/chats", json={"title": "Concurrent Session"}, headers=headers
+    )
+    session_id = sess_res.json()["id"]
+
+    mock_provider = MockToolCallingProvider()
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        await client.post(
+            f"/api/v1/chats/{session_id}/stream",
+            json={"content": "What is 12 * 10?"},
+            headers=headers,
+        )
+
+    msgs = (
+        await client.get(f"/api/v1/chats/{session_id}/messages", headers=headers)
+    ).json()
+    msg = msgs[1]
+    tool_call_id = msg["tool_calls"][0]["id"]
+
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider", return_value=mock_provider
+    ):
+        task1 = client.post(
+            f"/api/v1/chats/{session_id}/tool-calls/approval",
+            json={
+                "tool_call_id": tool_call_id,
+                "approved": True,
+                "message_id": msg["id"],
+            },
+            headers=headers,
+        )
+        task2 = client.post(
+            f"/api/v1/chats/{session_id}/tool-calls/approval",
+            json={
+                "tool_call_id": tool_call_id,
+                "approved": True,
+                "message_id": msg["id"],
+            },
+            headers=headers,
+        )
+        res1, res2 = await asyncio.gather(task1, task2)
+
+    texts = [res1.text, res2.text]
+    assert any("event: tool_result" in t for t in texts)
+    assert any("already processed" in t for t in texts)

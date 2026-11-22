@@ -11,7 +11,7 @@ export interface ToolCall {
   id: string;
   tool: string;
   arguments: Record<string, any>;
-  status?: 'pending' | 'approved' | 'rejected' | 'executed';
+  status?: 'pending' | 'approved' | 'rejected' | 'executed' | 'executing' | 'failed';
   result?: any;
 }
 
