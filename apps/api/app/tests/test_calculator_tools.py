@@ -550,14 +550,16 @@ async def test_create_pdf_tool_calling_flow_with_user_approval(
         raw_result = executed_call["result"]
         parsed_result = json.loads(raw_result)
         assert parsed_result["status"] == "success"
-        assert "arch_report_test.pdf" in parsed_result["filename"]
+        assert "arch_report_test" in parsed_result["filename"]
+        assert parsed_result["filename"].endswith(".pdf")
         assert (
             parsed_result["download_url"]
             == f"/api/v1/chats/files/pdf/{parsed_result['filename']}"
         )
-        generated_file_path = parsed_result.get("file_path")
-        if generated_file_path:
-            assert os.path.exists(generated_file_path)
+        from app.mcp_servers.pdf_server import _get_output_dir
+
+        generated_file_path = os.path.join(_get_output_dir(), parsed_result["filename"])
+        assert os.path.exists(generated_file_path)
     finally:
         if generated_file_path and os.path.exists(generated_file_path):
             os.remove(generated_file_path)

@@ -31,16 +31,36 @@ def _get_output_dir() -> str:
     return base_dir
 
 
+def _resolve_in_output_dir(path: str) -> str | None:
+    """Resolve a filename to a path strictly inside the output directory.
+
+    Rejects paths with directory traversal, directory separators, non-PDF extensions,
+    and paths that resolve outside the base output directory.
+    """
+    if not path or os.path.basename(path) != path:
+        return None
+    base = os.path.realpath(_get_output_dir())
+    candidate = os.path.realpath(os.path.join(base, os.path.basename(path)))
+    if os.path.commonpath([base, candidate]) != base or not candidate.lower().endswith(
+        ".pdf"
+    ):
+        return None
+    return candidate
+
+
 def _sanitize_filename(name: str | None, prefix: str = "doc") -> str:
-    """Sanitize or generate a safe .pdf filename without directory traversal."""
+    """Sanitize or generate a safe .pdf filename without directory traversal.
+
+    Always appends a random UUID suffix before .pdf to prevent file collisions and overwriting.
+    """
+    rand_suffix = uuid.uuid4().hex[:12]
     if name:
         base = os.path.basename(name).strip()
         base = re.sub(r"[^\w\-\.]", "_", base)
-        if not base.lower().endswith(".pdf"):
-            base += ".pdf"
-        return base
+        stem = base[:-4] if base.lower().endswith(".pdf") else base
+        stem = stem.strip("._") or prefix
+        return f"{stem}_{rand_suffix}.pdf"
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    rand_suffix = uuid.uuid4().hex[:6]
     return f"{prefix}_{timestamp}_{rand_suffix}.pdf"
 
 
@@ -83,11 +103,11 @@ def create_pdf(
     Args:
         title: Title of the document
         content: Body content (supports Markdown headers, lists, bold, italics, or basic HTML)
-        filename: Optional custom filename (e.g. 'quarterly_report.pdf')
+        filename: Optional custom base filename (e.g. 'quarterly_report.pdf')
         author: Optional author name embedded in PDF metadata
 
     Returns:
-        JSON string with creation status, file_path, page_count, and file_size_bytes
+        JSON string with status, filename, download_url, page_count, and file_size_bytes
     """
     try:
         output_dir = _get_output_dir()
@@ -194,13 +214,14 @@ def create_pdf(
                         new_y="NEXT",
                     )
 
-        pdf.output(target_path)
+        pdf_bytes = pdf.output()
+        with open(target_path, "xb") as f_out:
+            f_out.write(pdf_bytes)
         page_count = pdf.page_no()
         file_size = os.path.getsize(target_path)
 
         result: dict[str, Any] = {
             "status": "success",
-            "file_path": target_path,
             "filename": safe_filename,
             "download_url": f"/api/v1/chats/files/pdf/{safe_filename}",
             "page_count": page_count,
@@ -221,11 +242,11 @@ def merge_pdfs(
     Merge multiple existing PDF files into a single unified document.
 
     Args:
-        file_paths: List of absolute or relative paths to PDF files to merge
+        file_paths: List of PDF filenames returned by create_pdf to merge (not absolute paths)
         output_filename: Optional name for the merged output file
 
     Returns:
-        JSON string with status, merged_file_path, total_pages, and source_files_count
+        JSON string with status, filename, download_url, total_pages, and source_files_count
     """
     if not file_paths:
         return json.dumps(
@@ -237,21 +258,22 @@ def merge_pdfs(
         valid_count = 0
 
         for path in file_paths:
-            if not os.path.exists(path):
+            resolved = _resolve_in_output_dir(path)
+            if resolved is None or not os.path.exists(resolved):
                 return json.dumps(
                     {
                         "status": "error",
-                        "error": f"Input PDF file does not exist: {path}",
+                        "error": "PDF not found.",
                     }
                 )
-            writer.append(path)
+            writer.append(resolved)
             valid_count += 1
 
         output_dir = _get_output_dir()
         safe_filename = _sanitize_filename(output_filename, prefix="merged")
         target_path = os.path.join(output_dir, safe_filename)
 
-        with open(target_path, "wb") as f_out:
+        with open(target_path, "xb") as f_out:
             writer.write(f_out)
         writer.close()
 
@@ -260,7 +282,6 @@ def merge_pdfs(
 
         result: dict[str, Any] = {
             "status": "success",
-            "merged_file_path": target_path,
             "filename": safe_filename,
             "download_url": f"/api/v1/chats/files/pdf/{safe_filename}",
             "total_pages": total_pages,
@@ -279,21 +300,22 @@ def inspect_pdf(file_path: str) -> str:
     Inspect an existing PDF to inspect metadata, page count, and text preview.
 
     Args:
-        file_path: Absolute or relative path to the PDF file
+        file_path: Filename returned by create_pdf or merge_pdfs (not absolute path)
 
     Returns:
-        JSON string with status, file_path, page_count, metadata, and preview
+        JSON string with status, filename, page_count, metadata, and preview
     """
-    if not os.path.exists(file_path):
+    resolved = _resolve_in_output_dir(file_path)
+    if resolved is None or not os.path.exists(resolved):
         return json.dumps(
             {
                 "status": "error",
-                "error": f"Target PDF file does not exist: {file_path}",
+                "error": "PDF not found.",
             }
         )
 
     try:
-        reader = PdfReader(file_path)
+        reader = PdfReader(resolved)
         page_count = len(reader.pages)
         metadata = {}
         if reader.metadata:
@@ -307,11 +329,11 @@ def inspect_pdf(file_path: str) -> str:
 
         result: dict[str, Any] = {
             "status": "success",
-            "file_path": file_path,
+            "filename": os.path.basename(resolved),
             "page_count": page_count,
             "metadata": metadata,
             "preview": preview,
-            "file_size_bytes": os.path.getsize(file_path),
+            "file_size_bytes": os.path.getsize(resolved),
         }
         return json.dumps(result)
     except Exception as exc:

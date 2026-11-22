@@ -7,7 +7,7 @@
 | `task-03` | Release DB connections before SSE streaming | CRITICAL | 02 | `Completed` | [`task-03-release-db-before-streaming.md`](./task-03-release-db-before-streaming.md) |
 | `task-04` | Replace cascading eager loads with explicit loading | HIGH | 03 | `Completed` | [`task-04-explicit-orm-loading.md`](./task-04-explicit-orm-loading.md) |
 | `task-05` | Authorize and lock tool-call approvals | HIGH | 04, 05 | `Completed` | [`task-05-tool-approval-authorization.md`](./task-05-tool-approval-authorization.md) |
-| `task-06` | Sandbox PDF tool file access | HIGH | 08 | `Pending` | [`task-06-sandbox-pdf-tools.md`](./task-06-sandbox-pdf-tools.md) |
+| `task-06` | Sandbox PDF tool file access | HIGH | 08 | `Completed` | [`task-06-sandbox-pdf-tools.md`](./task-06-sandbox-pdf-tools.md) |
 | `task-07` | Restrict PDF downloads to the owner | HIGH | 04, 08 | `Pending` | [`task-07-pdf-download-ownership.md`](./task-07-pdf-download-ownership.md) |
 | `task-08` | Move blocking work off the event loop | HIGH | 06 | `Pending` | [`task-08-offload-blocking-work.md`](./task-08-offload-blocking-work.md) |
 | `task-09` | Trust only real client IPs and make rate limiting atomic | HIGH | 09, 05 | `Pending` | [`task-09-rate-limiter-ip-and-atomicity.md`](./task-09-rate-limiter-ip-and-atomicity.md) |

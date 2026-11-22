@@ -7,7 +7,7 @@ Execute one task at a time (see `.agent/rules/task-by-task.md`). Each task links
 - [x] Task 03: Release DB connections before SSE streaming (`tasks/task-03-release-db-before-streaming.md`)
 - [x] Task 04: Replace cascading eager loads with explicit loading (`tasks/task-04-explicit-orm-loading.md`)
 - [x] Task 05: Authorize and lock tool-call approvals (`tasks/task-05-tool-approval-authorization.md`)
-- [ ] Task 06: Sandbox PDF tool file access (`tasks/task-06-sandbox-pdf-tools.md`)
+- [x] Task 06: Sandbox PDF tool file access (`tasks/task-06-sandbox-pdf-tools.md`)
 - [ ] Task 07: Restrict PDF downloads to the owner (`tasks/task-07-pdf-download-ownership.md`)
 - [ ] Task 08: Move blocking work off the event loop (`tasks/task-08-offload-blocking-work.md`)
 - [ ] Task 09: Trust only real client IPs and make rate limiting atomic (`tasks/task-09-rate-limiter-ip-and-atomicity.md`)

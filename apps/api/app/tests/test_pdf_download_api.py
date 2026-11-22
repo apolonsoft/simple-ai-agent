@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi import status
 
-from app.mcp_servers.pdf_server import create_pdf
+from app.mcp_servers.pdf_server import _get_output_dir, create_pdf
 
 
 async def get_auth_token(
@@ -88,7 +88,7 @@ async def test_download_pdf_success(client: httpx.AsyncClient):
     assert download_res.content.startswith(b"%PDF")
 
     # Clean up test artifact
-    file_path = data["file_path"]
+    file_path = os.path.join(_get_output_dir(), filename)
     if os.path.exists(file_path):
         os.remove(file_path)
 
@@ -113,6 +113,6 @@ async def test_download_pdf_success_via_query_param(client: httpx.AsyncClient):
     assert "application/pdf" in download_res.headers.get("content-type", "")
     assert download_res.content.startswith(b"%PDF")
 
-    file_path = data["file_path"]
+    file_path = os.path.join(_get_output_dir(), filename)
     if os.path.exists(file_path):
         os.remove(file_path)

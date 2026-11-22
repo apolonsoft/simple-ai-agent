@@ -1,6 +1,6 @@
 ### Task 06: Sandbox PDF Tool File Access
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [08 — Agent tools are untrusted input](../lessons/lesson-08-sandboxing-agent-tools.md)
 
