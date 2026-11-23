@@ -34,6 +34,11 @@ class UserModel(Base, TimestampMixin):
     )
     ban_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    # Session revocation watermark (tokens issued before this timestamp are rejected)
+    tokens_valid_after: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # User Profile Information
     full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)

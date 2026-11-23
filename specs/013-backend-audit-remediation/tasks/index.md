@@ -12,7 +12,7 @@
 | `task-08` | Move blocking work off the event loop | HIGH | 06 | `Completed` | [`task-08-offload-blocking-work.md`](./task-08-offload-blocking-work.md) |
 | `task-09` | Trust only real client IPs and make rate limiting atomic | HIGH | 09, 05 | `Completed` | [`task-09-rate-limiter-ip-and-atomicity.md`](./task-09-rate-limiter-ip-and-atomicity.md) |
 | `task-10` | Refuse to start with a default secret key | HIGH | 09 | `Completed` | [`task-10-secret-key-guard.md`](./task-10-secret-key-guard.md) |
-| `task-11` | Move token revocation to PostgreSQL | HIGH | 07 | `Pending` | [`task-11-db-token-revocation.md`](./task-11-db-token-revocation.md) |
+| `task-11` | Move token revocation to PostgreSQL | HIGH | 07 | `Completed` | [`task-11-db-token-revocation.md`](./task-11-db-token-revocation.md) |
 | `task-12` | Enforce hierarchy on unban | MEDIUM | 04 | `Pending` | [`task-12-unban-hierarchy.md`](./task-12-unban-hierarchy.md) |
 | `task-13` | Harden the Redis connection pool | MEDIUM | 07 | `Pending` | [`task-13-redis-pool-hardening.md`](./task-13-redis-pool-hardening.md) |
 | `task-14` | Make the chat cache an atomic bounded list | MEDIUM | 11 | `Pending` | [`task-14-atomic-chat-cache.md`](./task-14-atomic-chat-cache.md) |

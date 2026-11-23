@@ -39,17 +39,16 @@ async def get_current_user(
     except (ValueError, TypeError):
         raise credentials_exception from None
 
-    # Check for distributed session revocation in Redis
-    if await is_token_revoked(user_id, payload):
+    user = await db.get(UserModel, user_id)
+    if not user or not user.is_active:
+        raise credentials_exception
+
+    if is_token_revoked(user, payload):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session revoked. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
-    user = await db.get(UserModel, user_id)
-    if not user or not user.is_active:
-        raise credentials_exception
 
     if user.is_banned:
         raise HTTPException(

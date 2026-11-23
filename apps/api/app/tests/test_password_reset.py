@@ -1,4 +1,5 @@
 # app/tests/test_password_reset.py
+import asyncio
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
@@ -235,3 +236,59 @@ async def test_forgot_password_rate_limiting(client: httpx.AsyncClient):
         )
         assert blocked.status_code == status.HTTP_429_TOO_MANY_REQUESTS
         assert "Too many requests" in blocked.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_reset_password_revokes_jwt_and_invalidates_sibling_reset_tokens(
+    client: httpx.AsyncClient,
+):
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": "revoke_reset@example.com", "password": "OldPassword123!"},
+    )
+    login_res = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "revoke_reset@example.com", "password": "OldPassword123!"},
+    )
+    old_token = login_res.json()["access_token"]
+    old_headers = {"Authorization": f"Bearer {old_token}"}
+
+    # Request two reset tokens before using the first one
+    reset_tokens: list[str] = []
+    with patch(
+        "app.services.email_service.EmailService.send_password_reset_email",
+        new_callable=AsyncMock,
+    ) as mock_send_email:
+        await client.post(
+            "/api/v1/auth/forgot-password",
+            json={"email": "revoke_reset@example.com"},
+        )
+        assert mock_send_email.await_args is not None
+        reset_tokens.append(mock_send_email.await_args[0][1])
+        await client.post(
+            "/api/v1/auth/forgot-password",
+            json={"email": "revoke_reset@example.com"},
+        )
+        assert mock_send_email.await_args is not None
+        reset_tokens.append(mock_send_email.await_args[0][1])
+
+    # Advance 1 second so iat < tokens_valid_after
+    await asyncio.sleep(1.05)
+
+    # Consume the first reset token
+    reset_res = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": reset_tokens[0], "new_password": "BrandNewPassword456!"},
+    )
+    assert reset_res.status_code == status.HTTP_200_OK
+
+    # Pre-reset JWT must now be rejected with 401
+    me_res = await client.get("/api/v1/users/me", headers=old_headers)
+    assert me_res.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # Sibling reset token must also be invalidated
+    sibling_res = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": reset_tokens[1], "new_password": "AnotherPassword789!"},
+    )
+    assert sibling_res.status_code == status.HTTP_400_BAD_REQUEST

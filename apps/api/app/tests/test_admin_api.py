@@ -1,4 +1,5 @@
 # app/tests/test_admin_api.py
+import asyncio
 import uuid
 
 import httpx
@@ -247,6 +248,54 @@ async def test_admin_unban_user_restores_access(
     # Target user can now access protected endpoints
     assert (
         await client.get("/api/v1/users/me", headers=target_headers)
+    ).status_code == status.HTTP_200_OK
+
+
+@pytest.mark.asyncio
+async def test_admin_unban_does_not_revalidate_pre_ban_token(
+    client: httpx.AsyncClient,
+):
+    """Tokens issued before a ban must stay 401 after unban; fresh login works."""
+    _, admin_token = await create_user_and_token(
+        client, "unban_revoke_admin@example.com", role="admin"
+    )
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    target_user, pre_ban_token = await create_user_and_token(
+        client, "pre_ban_user@example.com", role="user", password="password123"
+    )
+    pre_ban_headers = {"Authorization": f"Bearer {pre_ban_token}"}
+
+    # Ensure iat < tokens_valid_after
+    await asyncio.sleep(1.05)
+
+    ban_res = await client.post(
+        f"/api/v1/admin/users/{target_user['id']}/ban",
+        json={"reason": "Abuse"},
+        headers=admin_headers,
+    )
+    assert ban_res.status_code == status.HTTP_200_OK
+
+    unban_res = await client.post(
+        f"/api/v1/admin/users/{target_user['id']}/unban",
+        headers=admin_headers,
+    )
+    assert unban_res.status_code == status.HTTP_200_OK
+
+    # Pre-ban token must remain rejected
+    assert (
+        await client.get("/api/v1/users/me", headers=pre_ban_headers)
+    ).status_code == status.HTTP_401_UNAUTHORIZED
+
+    # Fresh login after unban succeeds
+    login_res = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "pre_ban_user@example.com", "password": "password123"},
+    )
+    assert login_res.status_code == status.HTTP_200_OK
+    fresh_headers = {"Authorization": f"Bearer {login_res.json()['access_token']}"}
+    assert (
+        await client.get("/api/v1/users/me", headers=fresh_headers)
     ).status_code == status.HTTP_200_OK
 
 

@@ -1,6 +1,6 @@
 ### Task 11: Move Token Revocation to PostgreSQL
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [07 — Session revocation and fail-open vs fail-closed](../lessons/lesson-07-session-revocation-and-failure-modes.md)
 

@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,9 +21,8 @@ from app.schemas.user import UserCreate
 
 
 class AuthService:
-    def __init__(self, db: AsyncSession, redis_client=None):
+    def __init__(self, db: AsyncSession):
         self.db = db
-        self.redis = redis_client
 
     @staticmethod
     def _hash_token(raw_token: str) -> str:
@@ -126,9 +125,19 @@ class AuthService:
         if not user or not user.is_active:
             return False
 
+        now = datetime.now(timezone.utc)
         user.hashed_password = await hash_password_async(new_password)
+        revoke_user_sessions(user)
         record.is_used = True
-        record.used_at = datetime.now(timezone.utc)
+        record.used_at = now
+        await self.db.execute(
+            update(PasswordResetModel)
+            .where(
+                PasswordResetModel.user_id == user.id,
+                PasswordResetModel.is_used.is_(False),
+            )
+            .values(is_used=True, used_at=now)
+        )
         await self.db.commit()
         return True
 
@@ -137,7 +146,7 @@ class AuthService:
     ) -> None:
         """
         Validates the user's current password, checks that the new password is not identical,
-        updates the password hash in the database, and registers a revocation timestamp in Redis
+        updates the password hash in the database, and advances tokens_valid_after
         to invalidate active tokens across all sessions.
         """
         if not await verify_password_async(current_password, user.hashed_password):
@@ -153,12 +162,6 @@ class AuthService:
             )
 
         user.hashed_password = await hash_password_async(new_password)
+        revoke_user_sessions(user)
         await self.db.commit()
         await self.db.refresh(user)
-
-        # Invalidate existing JWT sessions across devices via Redis
-        await revoke_user_sessions(
-            user.id,
-            settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            client=self.redis,
-        )
