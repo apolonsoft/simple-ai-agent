@@ -126,6 +126,44 @@ async def test_gemini_connection_error():
                 pass
 
 
+@pytest.mark.asyncio
+async def test_gemini_sends_api_key_in_header_not_url():
+    provider = GeminiProvider(api_key="secret_gemini_key", model="gemini-1.5-flash")
+    messages = [LLMMessage(role="user", content="Hi")]
+
+    async def mock_aiter_lines():
+        yield 'data: {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}'
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.aiter_lines = mock_aiter_lines
+    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_response.__aexit__ = AsyncMock(return_value=None)
+
+    mock_client = MagicMock()
+    mock_client.stream = MagicMock(return_value=mock_response)
+    mock_client.get = AsyncMock(return_value=MagicMock(status_code=200))
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("httpx.AsyncClient", return_value=mock_client):
+        chunks = [c async for c in provider.generate_stream(messages)]
+        healthy = await provider.health_check()
+
+    assert chunks == ["ok"]
+    assert healthy is True
+
+    stream_call = mock_client.stream.call_args
+    stream_url = stream_call.args[1]
+    assert "key=" not in stream_url
+    assert stream_call.kwargs["headers"]["x-goog-api-key"] == "secret_gemini_key"
+
+    get_call = mock_client.get.call_args
+    get_url = get_call.args[0]
+    assert "key=" not in get_url
+    assert get_call.kwargs["headers"]["x-goog-api-key"] == "secret_gemini_key"
+
+
 # ==============================================================================
 # OLLAMA PROVIDER TESTS
 # ==============================================================================

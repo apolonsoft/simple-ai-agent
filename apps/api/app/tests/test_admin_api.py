@@ -342,6 +342,24 @@ async def test_regular_admin_cannot_unban_admin_but_super_admin_can(
 
 
 @pytest.mark.asyncio
+async def test_admin_search_escapes_wildcards(client: httpx.AsyncClient):
+    """Literal '_' and '%' in admin search must not act as SQL LIKE wildcards."""
+    _, admin_token = await create_user_and_token(
+        client, "search_esc_admin@example.com", role="admin"
+    )
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    await create_user_and_token(client, "a_b@x.com", role="user")
+    await create_user_and_token(client, "axb@x.com", role="user")
+
+    res = await client.get("/api/v1/admin/users?search=a_b", headers=admin_headers)
+    assert res.status_code == status.HTTP_200_OK
+    data = res.json()
+    assert data["total"] == 1
+    assert data["items"][0]["email"] == "a_b@x.com"
+
+
+@pytest.mark.asyncio
 async def test_admin_self_ban_guardrail(
     client: httpx.AsyncClient,
 ):

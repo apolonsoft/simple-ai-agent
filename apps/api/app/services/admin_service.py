@@ -40,11 +40,11 @@ class AdminService:
 
         filters = []
         if search and search.strip():
-            term = f"%{search.strip()}%"
+            term = search.strip()
             filters.append(
                 or_(
-                    UserModel.email.ilike(term),
-                    UserModel.full_name.ilike(term),
+                    UserModel.email.icontains(term, autoescape=True),
+                    UserModel.full_name.icontains(term, autoescape=True),
                 )
             )
         if role and role.strip():
