@@ -236,16 +236,17 @@
 
           <!-- 4-segment Password Strength Meter -->
           @if (passwordForm.get('new_password')?.value) {
+            @let strength = passwordStrength;
             <div class="mt-2 flex flex-col gap-1">
               <div class="flex items-center justify-between text-[11px] text-[#72706b]">
                 <span>Strength</span>
-                <span class="font-medium text-[#27251e]">{{ passwordStrength.label }}</span>
+                <span class="font-medium text-[#27251e]">{{ strength.label }}</span>
               </div>
               <div class="grid grid-cols-4 gap-1.5 h-1.5 w-full">
-                <div class="rounded-full transition-colors duration-200" [class]="passwordStrength.score >= 1 ? passwordStrength.color : 'bg-[#e8e6e1]'"></div>
-                <div class="rounded-full transition-colors duration-200" [class]="passwordStrength.score >= 2 ? passwordStrength.color : 'bg-[#e8e6e1]'"></div>
-                <div class="rounded-full transition-colors duration-200" [class]="passwordStrength.score >= 3 ? passwordStrength.color : 'bg-[#e8e6e1]'"></div>
-                <div class="rounded-full transition-colors duration-200" [class]="passwordStrength.score >= 4 ? passwordStrength.color : 'bg-[#e8e6e1]'"></div>
+                <div class="rounded-full transition-colors duration-200" [class]="strength.score >= 1 ? strength.color : 'bg-[#e8e6e1]'"></div>
+                <div class="rounded-full transition-colors duration-200" [class]="strength.score >= 2 ? strength.color : 'bg-[#e8e6e1]'"></div>
+                <div class="rounded-full transition-colors duration-200" [class]="strength.score >= 3 ? strength.color : 'bg-[#e8e6e1]'"></div>
+                <div class="rounded-full transition-colors duration-200" [class]="strength.score >= 4 ? strength.color : 'bg-[#e8e6e1]'"></div>
               </div>
             </div>
           }

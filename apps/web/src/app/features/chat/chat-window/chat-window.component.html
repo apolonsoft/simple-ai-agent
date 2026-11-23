@@ -115,7 +115,7 @@
                               <div class="tool-args-section flex flex-col gap-1">
                                 <span class="tool-section-label text-[10px] font-medium uppercase tracking-wider text-[#92918b]">Parameters:</span>
                                 <div class="tool-args-grid flex flex-wrap gap-1.5">
-                                  @for (param of getToolParams(tc.arguments); track param.key) {
+                                  @for (param of (tc.arguments | toolParams); track param.key) {
                                     <div class="tool-arg-chip bg-white border border-[#d1d1cd] rounded px-2 py-0.5 text-xs font-mono">
                                       <span class="arg-key text-[#72706b] mr-1">{{ param.key }}:</span>
                                       <span class="arg-val text-[#27251e] font-medium">{{ param.value }}</span>
@@ -130,7 +130,7 @@
                                     <span class="tool-section-label text-[10px] font-medium uppercase tracking-wider text-[#92918b]">Result:</span>
                                     <span class="tool-result-value font-mono text-xs text-[#016a71] font-medium bg-white px-2 py-0.5 rounded border border-[#d1d1cd] truncate">{{ tc.result }}</span>
                                   </div>
-                                  @if (extractPdfFilename(tc.result); as pdfFile) {
+                                  @if (tc.result | pdfFilename; as pdfFile) {
                                     <div class="pdf-actions flex items-center gap-2 pt-0.5">
                                       <button
                                         type="button"
@@ -221,7 +221,8 @@
           class="chat-input w-full resize-none border-none bg-transparent text-base text-[#000000] placeholder-[#92918b] focus:outline-none min-h-[32px] max-h-[140px] leading-relaxed font-normal"
           rows="1"
           placeholder="Ask anything... (Press Enter to send, Shift+Enter for new line)"
-          [(ngModel)]="promptText"
+          [ngModel]="promptText()"
+          (ngModelChange)="promptText.set($event)"
           name="promptText"
           (keydown)="onKeyDown($event)"
           [disabled]="isStreaming()"
@@ -355,7 +356,7 @@
               <button
                 type="submit"
                 class="send-btn w-7 h-7 rounded-full bg-[#27251e] text-white flex items-center justify-center hover:bg-[#000000] transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.06)] active:scale-95"
-                [disabled]="!promptText.trim()"
+                [disabled]="!promptText().trim()"
                 title="Send message (Enter)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
