@@ -1,6 +1,6 @@
 ### Task 17: Bound Avatar Uploads
 
-- [ ] Pending
+- [x] Completed
 
 **Lessons:** [06 — What actually blocks the event loop](../lessons/lesson-06-event-loop-blocking.md), [01 — Never trust the request body](../lessons/lesson-01-trust-boundaries-and-mass-assignment.md)
 

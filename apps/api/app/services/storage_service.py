@@ -1,6 +1,7 @@
 # app/services/storage_service.py
 import asyncio
 import io
+import logging
 import threading
 import uuid
 from typing import Any
@@ -11,6 +12,8 @@ from botocore.exceptions import ClientError
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 _s3_client: Any | None = None
 _s3_client_lock = threading.Lock()
@@ -66,25 +69,24 @@ class StorageService:
         )
 
     async def upload_file(
-        self, file_bytes: bytes, original_filename: str, content_type: str
+        self,
+        file_bytes: bytes,
+        content_type: str,
+        extension: str = "bin",
     ) -> str:
         """Uploads a file stream asynchronously to S3/SeaweedFS and returns its public URL."""
-        # Sanitize extension and create unique object key
-        extension = (
-            original_filename.rsplit(".", 1)[-1].lower()
-            if "." in original_filename
-            else "bin"
-        )
-        unique_key = f"{uuid.uuid4().hex}.{extension}"
+        clean_ext = extension.lstrip(".").lower() or "bin"
+        unique_key = f"{uuid.uuid4().hex}.{clean_ext}"
 
         try:
             await asyncio.to_thread(
                 self._sync_upload, file_bytes, unique_key, content_type
             )
         except Exception as e:
+            logger.exception("Storage upload failed")
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Storage upload failed: {str(e)}",
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Avatar upload failed.",
             ) from e
 
         return f"{self.public_url_prefix}/{unique_key}"

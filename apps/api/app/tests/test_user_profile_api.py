@@ -177,3 +177,70 @@ async def test_get_profile_does_not_create_s3_client_per_request(
     assert res1.status_code == status.HTTP_200_OK
     assert res2.status_code == status.HTTP_200_OK
     assert mock_boto_client.call_count <= 1
+
+
+@pytest.mark.asyncio
+async def test_upload_avatar_bounded_read(client: httpx.AsyncClient):
+    """UploadFile.read must be bounded to MAX_AVATAR_SIZE_BYTES + 1."""
+    from starlette.datastructures import UploadFile as StarletteUploadFile
+
+    token = await get_auth_token(client, "bounded_avatar@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    read_sizes: list[int] = []
+    orig_read = StarletteUploadFile.read
+
+    async def spy_read(self_file, size: int = -1) -> bytes:
+        read_sizes.append(size)
+        return await orig_read(self_file, size)
+
+    with (
+        patch("app.core.config.settings.MAX_AVATAR_SIZE_BYTES", 100),
+        patch.object(StarletteUploadFile, "read", spy_read),
+    ):
+        files = {
+            "file": ("huge.png", b"\x89PNG" + b"x" * 10000, "image/png"),
+        }
+        res = await client.post("/api/v1/users/me/avatar", files=files, headers=headers)
+
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert read_sizes == [101]
+
+
+@pytest.mark.asyncio
+async def test_upload_avatar_magic_bytes_mismatch(client: httpx.AsyncClient):
+    """Content that does not match declared image MIME type must be rejected with 400."""
+    token = await get_auth_token(client, "magic_avatar@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    files = {
+        "file": ("evil.png", b"<html>not a png</html>", "image/png"),
+    }
+    res = await client.post("/api/v1/users/me/avatar", files=files, headers=headers)
+    assert res.status_code == status.HTTP_400_BAD_REQUEST
+    assert "does not match" in res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_storage_upload_error_hides_internal_details():
+    """StorageService.upload_file must return generic 502 without leaking boto3 errors."""
+    from unittest.mock import MagicMock
+
+    from fastapi import HTTPException
+
+    from app.services.storage_service import StorageService
+
+    broken_client = MagicMock()
+    broken_client.head_bucket.side_effect = RuntimeError(
+        "secret internal endpoint http://s3.internal:9000"
+    )
+    broken_client.upload_fileobj.side_effect = RuntimeError(
+        "secret internal endpoint http://s3.internal:9000"
+    )
+    service = StorageService(s3_client=broken_client)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await service.upload_file(b"\x89PNGdata", "image/png", extension="png")
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+    assert exc_info.value.detail == "Avatar upload failed."
