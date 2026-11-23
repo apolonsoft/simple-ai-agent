@@ -10,7 +10,7 @@ describe('adminGuard', () => {
   let mockAuthService: {
     getToken: ReturnType<typeof vi.fn>;
     currentUser: ReturnType<typeof signal<User | null>>;
-    getMe: ReturnType<typeof vi.fn>;
+    ensureCurrentUser: ReturnType<typeof vi.fn>;
     logout: ReturnType<typeof vi.fn>;
   };
   let router: Router;
@@ -19,7 +19,7 @@ describe('adminGuard', () => {
     mockAuthService = {
       getToken: vi.fn(),
       currentUser: signal<User | null>(null),
-      getMe: vi.fn(),
+      ensureCurrentUser: vi.fn(),
       logout: vi.fn(),
     };
 
@@ -82,10 +82,10 @@ describe('adminGuard', () => {
     expect((result as UrlTree).toString()).toBe('/chat');
   });
 
-  it('should fetch profile with getMe when signal is null and allow if role is admin', async () => {
+  it('should fetch profile with ensureCurrentUser when signal is null and allow if role is admin', async () => {
     mockAuthService.getToken.mockReturnValue('valid-token');
     mockAuthService.currentUser.set(null);
-    mockAuthService.getMe.mockReturnValue(
+    mockAuthService.ensureCurrentUser.mockReturnValue(
       of({
         id: '1',
         email: 'admin@example.com',
@@ -98,14 +98,14 @@ describe('adminGuard', () => {
 
     guardObs.subscribe((res: any) => {
       expect(res).toBe(true);
-      expect(mockAuthService.currentUser()?.role).toBe('admin');
+      expect(mockAuthService.ensureCurrentUser).toHaveBeenCalled();
     });
   });
 
-  it('should fetch profile with getMe when signal is null and redirect to /chat if role is user', async () => {
+  it('should fetch profile with ensureCurrentUser when signal is null and redirect to /chat if role is user', async () => {
     mockAuthService.getToken.mockReturnValue('valid-token');
     mockAuthService.currentUser.set(null);
-    mockAuthService.getMe.mockReturnValue(
+    mockAuthService.ensureCurrentUser.mockReturnValue(
       of({
         id: '4',
         email: 'regular@example.com',
@@ -122,10 +122,10 @@ describe('adminGuard', () => {
     });
   });
 
-  it('should call logout and redirect to /login if getMe fails', async () => {
+  it('should call logout and redirect to /login if ensureCurrentUser fails', async () => {
     mockAuthService.getToken.mockReturnValue('valid-token');
     mockAuthService.currentUser.set(null);
-    mockAuthService.getMe.mockReturnValue(throwError(() => new Error('Unauthorized')));
+    mockAuthService.ensureCurrentUser.mockReturnValue(throwError(() => new Error('Unauthorized')));
 
     const guardObs = TestBed.runInInjectionContext(() => adminGuard({} as any, {} as any)) as any;
 

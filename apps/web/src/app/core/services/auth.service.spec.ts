@@ -3,6 +3,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
+import { ChatService } from './chat.service';
+import { AdminService } from './admin.service';
 import { User, TokenResponse } from '../models/user.model';
 
 describe('AuthService', () => {
@@ -183,5 +185,72 @@ describe('AuthService', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(payload);
     req.flush({ message: 'Password changed successfully.' });
+  });
+
+  it('should evict expired or malformed 3-part JWTs in getToken() while keeping valid ones', () => {
+    const encodePart = (obj: Record<string, unknown>) =>
+      btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+    const expiredJwt = `${encodePart({ alg: 'HS256' })}.${encodePart({ exp: Math.floor(Date.now() / 1000) - 60 })}.sig`;
+    localStorage.setItem('token', expiredJwt);
+    expect(service.getToken()).toBeNull();
+    expect(localStorage.getItem('token')).toBeNull();
+
+    localStorage.setItem('token', 'header.not-valid-base64!.sig');
+    expect(service.getToken()).toBeNull();
+    expect(localStorage.getItem('token')).toBeNull();
+
+    const validJwt = `${encodePart({ alg: 'HS256' })}.${encodePart({ exp: Math.floor(Date.now() / 1000) + 3600 })}.sig`;
+    localStorage.setItem('token', validJwt);
+    expect(service.getToken()).toBe(validJwt);
+  });
+
+  it('should deduplicate concurrent ensureCurrentUser() calls into one GET /api/v1/auth/me request', () => {
+    let firstUser: User | undefined;
+    let secondUser: User | undefined;
+
+    service.ensureCurrentUser().subscribe((u) => (firstUser = u));
+    service.ensureCurrentUser().subscribe((u) => (secondUser = u));
+
+    const req = httpTestingController.expectOne('/api/v1/auth/me');
+    req.flush(mockUser);
+
+    expect(firstUser).toEqual(mockUser);
+    expect(secondUser).toEqual(mockUser);
+    expect(service.currentUser()).toEqual(mockUser);
+  });
+
+  it('should reset ChatService and AdminService state on logout', () => {
+    const chatService = TestBed.inject(ChatService);
+    const adminService = TestBed.inject(AdminService);
+
+    chatService.sessions.set([
+      {
+        id: 's1',
+        user_id: 'u1',
+        title: 'Secret chat',
+        created_at: '2026-11-08T10:00:00Z',
+        updated_at: '2026-11-08T10:00:00Z',
+      },
+    ]);
+    chatService.messages.set([{ role: 'user', content: 'Secret message' }]);
+    adminService.users.set([
+      {
+        id: 'u1',
+        email: 'a@b.com',
+        role: 'user',
+        is_active: true,
+        is_banned: false,
+        ban_reason: null,
+        created_at: '2026-11-08T10:00:00Z',
+      },
+    ]);
+
+    service.logout();
+
+    expect(chatService.sessions()).toEqual([]);
+    expect(chatService.messages()).toEqual([]);
+    expect(adminService.users()).toEqual([]);
+    expect(adminService.selectedUser()).toBeNull();
   });
 });

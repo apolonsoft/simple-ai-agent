@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, tap, catchError, throwError } from 'rxjs';
+import { AuthService } from './auth.service';
 import {
   AdminUser,
   AdminUserDetail,
@@ -17,7 +18,25 @@ import {
 })
 export class AdminService {
   private readonly http = inject(HttpClient);
+  private readonly authService = inject(AuthService);
   private readonly baseUrl = '/api/v1/admin/users';
+
+  constructor() {
+    this.authService.registerLogoutCleanup(() => this.resetState());
+  }
+
+  resetState(): void {
+    this.users.set([]);
+    this.total.set(0);
+    this.page.set(1);
+    this.totalPages.set(1);
+    this.selectedUser.set(null);
+    this.searchQuery.set('');
+    this.roleFilter.set('');
+    this.statusFilter.set('');
+    this.isLoading.set(false);
+    this.error.set(null);
+  }
 
   // State signals
   readonly users = signal<AdminUser[]>([]);

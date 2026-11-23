@@ -20,9 +20,8 @@ export const adminGuard: CanActivateFn = () => {
     return router.createUrlTree(['/chat']);
   }
 
-  return authService.getMe().pipe(
+  return authService.ensureCurrentUser().pipe(
     map((user) => {
-      authService.currentUser.set(user);
       if (user.role === 'admin' || user.role === 'super_admin') {
         return true;
       }
