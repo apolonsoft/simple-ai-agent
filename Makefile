@@ -61,7 +61,7 @@ run:
 	@:
 
 dev-api:
-	cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000
+	cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000 --proxy-headers --forwarded-allow-ips "$${FORWARDED_ALLOW_IPS:-127.0.0.1}"
 
 dev-mcp-pdf:
 	cd apps/api && .venv/bin/python -m app.mcp_servers.pdf_server

@@ -33,7 +33,7 @@ class RateLimiter:
         """
         Extracts client identifier:
         Prefers authenticated user ID if Bearer token is present,
-        otherwise falls back to Client IP (respecting X-Forwarded-For).
+        otherwise falls back to Client IP from request.client.host.
         """
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
@@ -42,15 +42,8 @@ class RateLimiter:
             if payload and "sub" in payload:
                 return f"user:{payload['sub']}"
 
-        # Unauthenticated: use IP address
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            client_ip = forwarded.split(",")[0].strip()
-        elif request.client:
-            client_ip = request.client.host
-        else:
-            client_ip = "127.0.0.1"
-
+        # Unauthenticated: trust only the ASGI peer/proxy-resolved client host
+        client_ip = request.client.host if request.client else "unknown"
         return f"ip:{client_ip}"
 
     async def __call__(self, request: Request) -> None:
@@ -62,21 +55,19 @@ class RateLimiter:
         try:
             redis: aioredis.Redis = await get_redis_client()
             async with redis.client() as conn:
-                # Use pipeline for atomic sliding window evaluation
+                member_id = f"{now}:{uuid.uuid4().hex[:8]}"
+                # Single atomic transaction: prune, add, count, peek oldest, expire
                 pipeline = conn.pipeline(transaction=True)
-                # 1. Remove timestamps outside the sliding window
                 pipeline.zremrangebyscore(redis_key, 0, window_start)
-                # 2. Count requests remaining in the current window
+                pipeline.zadd(redis_key, {member_id: now})
                 pipeline.zcard(redis_key)
-                # 3. Fetch the oldest record to calculate exact Retry-After
                 pipeline.zrange(redis_key, 0, 0, withscores=True)
-                results = await pipeline.execute()
+                pipeline.expire(redis_key, self.window_seconds + 5)
+                _, _, current_count, oldest_entry, _ = await pipeline.execute()
 
-                current_count = results[1]
-                oldest_entry = results[2]
-
-                if current_count >= self.max_requests:
-                    # Calculate retry delay based on the oldest request in the window
+                if current_count > self.max_requests:
+                    # Remove rejected member so rejected attempts do not extend the window
+                    await conn.zrem(redis_key, member_id)
                     oldest_score = oldest_entry[0][1] if oldest_entry else now
                     reset_time = int(oldest_score + self.window_seconds)
                     retry_after = max(1, reset_time - int(now))
@@ -96,13 +87,6 @@ class RateLimiter:
                             "X-RateLimit-Reset": str(reset_time),
                         },
                     )
-
-                # Add current request with a unique member and expire key
-                member_id = f"{now}:{uuid.uuid4().hex[:8]}"
-                add_pipeline = conn.pipeline(transaction=True)
-                add_pipeline.zadd(redis_key, {member_id: now})
-                add_pipeline.expire(redis_key, self.window_seconds + 5)
-                await add_pipeline.execute()
 
         except HTTPException:
             # Re-raise rate limit exceptions
