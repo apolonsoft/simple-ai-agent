@@ -1,6 +1,6 @@
 ### Task 10: Enable Strict TypeScript, Unify Form Validators & Sync Shared Contracts
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 **LOW / Final Gate (Audit Findings #19, #20, #24).**

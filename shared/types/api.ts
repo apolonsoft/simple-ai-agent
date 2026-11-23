@@ -3,6 +3,8 @@
  * Derived from OpenAPI 3.1.0 schema (shared/openapi.json)
  */
 
+export type UserRole = 'user' | 'admin' | 'super_admin';
+
 export interface HealthCheckResponse {
   status: 'healthy' | 'unhealthy';
   database: 'healthy' | 'unhealthy' | 'unavailable';
@@ -12,14 +14,95 @@ export interface HealthCheckResponse {
 export interface UserResponse {
   id: string;
   email: string;
-  role: 'user' | 'admin' | 'super_admin';
+  role: UserRole;
   is_active: boolean;
-  created_at: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface UserRegisterRequest {
   email: string;
   password: string;
+}
+
+export interface UserProfileUpdate {
+  full_name?: string | null;
+  bio?: string | null;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  new_password: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface VerifyResetTokenResponse {
+  valid: boolean;
+  email?: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  role: UserRole;
+  is_active: boolean;
+  is_banned: boolean;
+  banned_at?: string | null;
+  ban_reason?: string | null;
+  created_at?: string | null;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  avatar_url?: string | null;
+  bio?: string | null;
+  chat_sessions_count: number;
+  updated_at?: string | null;
+}
+
+export interface AdminUserListResponse {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+}
+
+export interface AdminActionResponse {
+  success: boolean;
+  message: string;
+  user: AdminUser;
+}
+
+export interface BanUserRequest {
+  reason?: string | null;
+}
+
+export interface UpdateUserRoleRequest {
+  role: UserRole;
+}
+
+export interface AdminUserFilter {
+  page?: number;
+  limit?: number;
+  search?: string;
+  role?: string;
+  status?: string;
 }
 
 export interface PaginationParams {
