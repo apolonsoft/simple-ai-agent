@@ -222,3 +222,22 @@ async def test_list_sessions_pagination_and_limit_bounds(
     # Limit > 200 rejected with 422
     over_limit = await client.get("/api/v1/chats?limit=500", headers=headers)
     assert over_limit.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_message_content_over_32000_chars_rejected(client: httpx.AsyncClient):
+    """Messages longer than 32,000 characters must fail schema validation (422)."""
+    token = await get_auth_token(client, "longmsg_chat@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_res = await client.post(
+        "/api/v1/chats", json={"title": "Limit Test"}, headers=headers
+    )
+    session_id = create_res.json()["id"]
+
+    res = await client.post(
+        f"/api/v1/chats/{session_id}/stream",
+        json={"content": "a" * 32_001},
+        headers=headers,
+    )
+    assert res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

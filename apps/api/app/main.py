@@ -1,4 +1,5 @@
 # app/main.py
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, status
@@ -9,6 +10,8 @@ from app.core.config import settings
 from app.core.redis import close_redis_pool, get_redis_client
 from app.db.session import engine
 from app.routes import api_router
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -57,8 +60,9 @@ def create_application() -> FastAPI:
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
             health_status["database"] = "connected"
-        except Exception as e:
-            health_status["database"] = f"unhealthy: {str(e)}"
+        except Exception:
+            logger.warning("Health check database probe failed", exc_info=True)
+            health_status["database"] = "unhealthy"
             health_status["status"] = "degraded"
 
         # Check Redis
@@ -67,8 +71,9 @@ def create_application() -> FastAPI:
             await redis_client.ping()
             health_status["redis"] = "connected"
             await redis_client.aclose()
-        except Exception as e:
-            health_status["redis"] = f"unhealthy: {str(e)}"
+        except Exception:
+            logger.warning("Health check redis probe failed", exc_info=True)
+            health_status["redis"] = "unhealthy"
             health_status["status"] = "degraded"
 
         return health_status

@@ -1,6 +1,6 @@
 ### Task 20: Input Limits and Error Hygiene
 
-- [ ] Pending
+- [x] Completed
 
 **Lessons:** [01 — Never trust the request body](../lessons/lesson-01-trust-boundaries-and-mass-assignment.md), [05 — Check-then-act races](../lessons/lesson-05-check-then-act-races.md)
 

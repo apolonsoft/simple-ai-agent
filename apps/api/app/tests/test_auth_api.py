@@ -199,3 +199,25 @@ async def test_login_unknown_email_verifies_dummy_hash(client: httpx.AsyncClient
 
     assert res.status_code == status.HTTP_401_UNAUTHORIZED
     assert mock_verify.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_register_duplicate_race_returns_409(client: httpx.AsyncClient):
+    """Concurrent duplicate signup hitting unique index must return 409, not 500."""
+    from unittest.mock import AsyncMock, patch
+
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": "race@example.com", "password": "securepassword123"},
+    )
+
+    with patch(
+        "app.services.auth_service.AuthService.get_by_email",
+        new=AsyncMock(return_value=None),
+    ):
+        res = await client.post(
+            "/api/v1/auth/register",
+            json={"email": "race@example.com", "password": "securepassword123"},
+        )
+
+    assert res.status_code == status.HTTP_409_CONFLICT

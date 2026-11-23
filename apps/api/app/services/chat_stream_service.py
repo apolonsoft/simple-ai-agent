@@ -10,6 +10,7 @@ from typing import Any
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.models.chat import ChatMessageModel
+from app.providers.exceptions import LLMAuthenticationError, LLMConnectionError
 from app.providers.factory import get_llm_provider
 from app.services.chat_cache_service import ChatCacheService
 from app.services.chat_service import ChatService
@@ -167,11 +168,20 @@ class ChatStreamService:
                         "event": "chunk",
                         "data": json.dumps({"content": token}),
                     }
-        except Exception as exc:
-            logger.error(f"Error during LLM stream generation: {exc}", exc_info=True)
+        except (LLMAuthenticationError, LLMConnectionError) as exc:
+            logger.warning("Provider error during LLM stream generation: %s", exc)
             yield {
                 "event": "error",
-                "data": json.dumps({"error": f"LLM generation error: {str(exc)}"}),
+                "data": json.dumps({"error": str(exc)}),
+            }
+            return
+        except Exception:
+            logger.error("Error during LLM stream generation", exc_info=True)
+            yield {
+                "event": "error",
+                "data": json.dumps(
+                    {"error": "The assistant is temporarily unavailable."}
+                ),
             }
             return
 
