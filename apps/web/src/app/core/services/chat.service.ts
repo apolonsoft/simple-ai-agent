@@ -1,9 +1,10 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
+import { Observable, Subscription, tap } from 'rxjs';
 import { ChatSession, ChatMessage, CreateSessionRequest, ToolCall } from '../models/chat.model';
 import { parseSseBlock, splitSseBuffer } from '../utils/sse-parser';
+import { AuthService } from './auth.service';
 
 @Injectable({
   providedIn: 'root',
@@ -11,9 +12,14 @@ import { parseSseBlock, splitSseBuffer } from '../utils/sse-parser';
 export class ChatService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
 
-  // Active SSE stream abort controller
+  // Active SSE stream abort controller & session/load guards
   private abortController: AbortController | null = null;
+  private loadMessagesSub?: Subscription;
+  private streamingSessionId: string | null = null;
+  private pendingTokenBuffer = '';
+  private flushRafId: number | null = null;
 
   // Reactive state using Angular Signals
   readonly sessions = signal<ChatSession[]>([]);
@@ -78,10 +84,23 @@ export class ChatService {
   }
 
   selectSession(sessionId: string | null): void {
+    if (
+      sessionId !== null &&
+      sessionId === this.activeSessionId() &&
+      (this.isLoadingMessages() || this.messages().some((m) => m.session_id === sessionId))
+    ) {
+      return;
+    }
+
+    this.abortStream();
+    this.loadMessagesSub?.unsubscribe();
+    this.loadMessagesSub = undefined;
     this.activeSessionId.set(sessionId);
+
     if (sessionId) {
-      this.loadMessages(sessionId).subscribe();
+      this.loadMessagesSub = this.loadMessages(sessionId).subscribe();
     } else {
+      this.isLoadingMessages.set(false);
       this.messages.set([]);
       this.streamError.set(null);
     }
@@ -93,7 +112,9 @@ export class ChatService {
     return this.http.get<ChatMessage[]>(`/api/v1/chats/${sessionId}/messages`).pipe(
       tap({
         next: (msgs) => {
-          this.messages.set(msgs);
+          if (this.activeSessionId() === null || this.activeSessionId() === sessionId) {
+            this.messages.set(msgs);
+          }
           this.isLoadingMessages.set(false);
         },
         error: () => {
@@ -116,6 +137,7 @@ export class ChatService {
     this.abortStream();
 
     const userMsg: ChatMessage = {
+      clientId: this.createClientId(),
       session_id: sessionId,
       role: 'user',
       content: trimmed,
@@ -123,6 +145,7 @@ export class ChatService {
     };
 
     const assistantMsg: ChatMessage = {
+      clientId: this.createClientId(),
       session_id: sessionId,
       role: 'assistant',
       content: '',
@@ -133,13 +156,14 @@ export class ChatService {
     this.messages.update((prev) => [...prev, userMsg, assistantMsg]);
     this.isStreaming.set(true);
     this.streamError.set(null);
+    this.streamingSessionId = sessionId;
 
     this.abortController = new AbortController();
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    const token = localStorage.getItem('token');
+    const token = this.authService.getToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -152,6 +176,11 @@ export class ChatService {
         signal: this.abortController.signal,
       });
 
+      if (response.status === 401) {
+        this.authService.logout();
+        return;
+      }
+
       if (!response.ok) {
         let errorDetail = `Server returned HTTP ${response.status}`;
         try {
@@ -160,12 +189,12 @@ export class ChatService {
         } catch {
           // ignore json parse error
         }
-        this.handleStreamError(errorDetail);
+        this.handleStreamError(errorDetail, sessionId);
         return;
       }
 
       if (!response.body) {
-        this.handleStreamError('Streaming response body is undefined.');
+        this.handleStreamError('Streaming response body is undefined.', sessionId);
         return;
       }
 
@@ -176,6 +205,7 @@ export class ChatService {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        if (!this.isStreamActiveFor(sessionId)) break;
 
         buffer += decoder.decode(value, { stream: true });
         const { blocks, remainder } = splitSseBuffer(buffer);
@@ -183,16 +213,16 @@ export class ChatService {
 
         for (const block of blocks) {
           if (block.trim()) {
-            this.processSseBlock(block);
+            this.processSseBlock(block, sessionId);
           }
         }
       }
 
-      if (buffer.trim()) {
+      if (buffer.trim() && this.isStreamActiveFor(sessionId)) {
         const { blocks, remainder } = splitSseBuffer(buffer);
         for (const block of [...blocks, remainder]) {
           if (block.trim()) {
-            this.processSseBlock(block);
+            this.processSseBlock(block, sessionId);
           }
         }
         buffer = '';
@@ -201,12 +231,16 @@ export class ChatService {
       if (error?.name === 'AbortError') {
         // Stream aborted on request
       } else {
-        this.handleStreamError(error?.message || 'Failed to stream response.');
+        this.handleStreamError(error?.message || 'Failed to stream response.', sessionId);
       }
     } finally {
-      this.finalizeAssistantMessage();
+      this.flushPendingTokens(sessionId);
+      this.finalizeAssistantMessage(sessionId);
       this.isStreaming.set(false);
       this.abortController = null;
+      if (this.streamingSessionId === sessionId) {
+        this.streamingSessionId = null;
+      }
     }
   }
 
@@ -218,8 +252,11 @@ export class ChatService {
   ): Promise<void> {
     if (this.isExecutingTool()) return;
 
+    this.abortStream();
     this.isExecutingTool.set(true);
     this.streamError.set(null);
+    this.streamingSessionId = sessionId;
+    this.abortController = new AbortController();
 
     // Optimistically update status
     this.updateToolCallStatus(toolCallId, approved ? 'approved' : 'rejected');
@@ -227,7 +264,7 @@ export class ChatService {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
-    const token = localStorage.getItem('token');
+    const token = this.authService.getToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -241,9 +278,17 @@ export class ChatService {
           approved,
           message_id: messageId,
         }),
+        signal: this.abortController.signal,
       });
 
+      if (response.status === 401) {
+        this.updateToolCallStatus(toolCallId, 'pending');
+        this.authService.logout();
+        return;
+      }
+
       if (!response.ok) {
+        this.updateToolCallStatus(toolCallId, 'pending');
         let errorDetail = `Server returned HTTP ${response.status}`;
         try {
           const errData = await response.json();
@@ -251,7 +296,7 @@ export class ChatService {
         } catch {
           // ignore
         }
-        this.handleStreamError(errorDetail);
+        this.handleStreamError(errorDetail, sessionId);
         return;
       }
 
@@ -266,6 +311,7 @@ export class ChatService {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        if (!this.isStreamActiveFor(sessionId)) break;
 
         buffer += decoder.decode(value, { stream: true });
         const { blocks, remainder } = splitSseBuffer(buffer);
@@ -273,38 +319,66 @@ export class ChatService {
 
         for (const block of blocks) {
           if (block.trim()) {
-            this.processSseBlock(block);
+            this.processSseBlock(block, sessionId);
           }
         }
       }
 
-      if (buffer.trim()) {
+      if (buffer.trim() && this.isStreamActiveFor(sessionId)) {
         const { blocks, remainder } = splitSseBuffer(buffer);
         for (const block of [...blocks, remainder]) {
           if (block.trim()) {
-            this.processSseBlock(block);
+            this.processSseBlock(block, sessionId);
           }
         }
         buffer = '';
       }
     } catch (error: any) {
-      this.handleStreamError(error?.message || 'Failed to process tool approval.');
+      this.updateToolCallStatus(toolCallId, 'pending');
+      if (error?.name !== 'AbortError') {
+        this.handleStreamError(error?.message || 'Failed to process tool approval.', sessionId);
+      }
     } finally {
+      this.flushPendingTokens(sessionId);
       this.isExecutingTool.set(false);
-      this.finalizeAssistantMessage();
+      this.finalizeAssistantMessage(sessionId);
+      this.abortController = null;
+      if (this.streamingSessionId === sessionId) {
+        this.streamingSessionId = null;
+      }
     }
   }
 
   abortStream(): void {
+    const previousSessionId = this.streamingSessionId;
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
     }
-    this.finalizeAssistantMessage();
+    this.flushPendingTokens(previousSessionId);
+    this.cancelPendingTokenFlush();
+    this.finalizeAssistantMessage(previousSessionId);
+    this.streamingSessionId = null;
     this.isStreaming.set(false);
+    this.isExecutingTool.set(false);
   }
 
-  private processSseBlock(block: string): void {
+  private isStreamActiveFor(sessionId: string): boolean {
+    if (this.streamingSessionId !== sessionId) return false;
+    const active = this.activeSessionId();
+    return active === null || active === sessionId;
+  }
+
+  private createClientId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `client-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  private processSseBlock(block: string, sessionId: string): void {
+    if (!this.isStreamActiveFor(sessionId)) return;
+
     const parsedBlock = parseSseBlock(block);
     if (!parsedBlock) return;
     const { eventType, dataStr } = parsedBlock;
@@ -312,8 +386,10 @@ export class ChatService {
     try {
       const parsed = JSON.parse(dataStr);
       if (eventType === 'error' || parsed.error) {
-        this.handleStreamError(parsed.error || 'Generation error');
+        this.flushPendingTokens(sessionId);
+        this.handleStreamError(parsed.error || 'Generation error', sessionId);
       } else if (eventType === 'tool_call') {
+        this.flushPendingTokens(sessionId);
         const toolName = parsed.tool || parsed.name;
         if (!toolName) return;
         const tc: ToolCall = {
@@ -325,8 +401,10 @@ export class ChatService {
         };
         this.addToolCallToAssistant(tc);
       } else if (eventType === 'tool_result') {
+        this.flushPendingTokens(sessionId);
         this.updateToolCallResult(parsed.tool_call_id, parsed.status, parsed.result);
       } else if (eventType === 'done' || parsed.status === 'completed' || parsed.status === 'awaiting_approval') {
+        this.flushPendingTokens(sessionId);
         if (parsed.message_id) {
           this.updateAssistantMessageId(parsed.message_id);
         }
@@ -335,15 +413,15 @@ export class ChatService {
             this.addToolCallToAssistant(tc);
           }
         }
-        this.finalizeAssistantMessage();
+        this.finalizeAssistantMessage(sessionId);
       } else if (eventType === 'chunk' || parsed.content !== undefined) {
         if (parsed.content) {
-          this.appendAssistantToken(parsed.content);
+          this.appendAssistantToken(parsed.content, sessionId);
         }
       }
     } catch {
       if (dataStr) {
-        this.appendAssistantToken(dataStr);
+        this.appendAssistantToken(dataStr, sessionId);
       }
     }
   }
@@ -417,7 +495,36 @@ export class ChatService {
     });
   }
 
-  private appendAssistantToken(token: string): void {
+  private appendAssistantToken(token: string, sessionId?: string | null): void {
+    if (sessionId && !this.isStreamActiveFor(sessionId)) return;
+
+    this.pendingTokenBuffer += token;
+    if (typeof requestAnimationFrame !== 'function') {
+      this.flushPendingTokens(sessionId);
+      return;
+    }
+
+    if (this.flushRafId === null) {
+      const targetSessionId = sessionId ?? this.streamingSessionId;
+      this.flushRafId = requestAnimationFrame(() => {
+        this.flushRafId = null;
+        this.flushPendingTokens(targetSessionId);
+      });
+    }
+  }
+
+  private flushPendingTokens(sessionId?: string | null): void {
+    if (this.flushRafId !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this.flushRafId);
+    }
+    this.flushRafId = null;
+
+    if (!this.pendingTokenBuffer) return;
+    const buffered = this.pendingTokenBuffer;
+    this.pendingTokenBuffer = '';
+
+    if (sessionId && !this.isStreamActiveFor(sessionId)) return;
+
     this.messages.update((list) => {
       if (list.length === 0) return list;
       const lastIdx = list.length - 1;
@@ -425,7 +532,7 @@ export class ChatService {
       if (last.role === 'assistant') {
         const updated: ChatMessage = {
           ...last,
-          content: last.content + token,
+          content: last.content + buffered,
         };
         return [...list.slice(0, lastIdx), updated];
       }
@@ -433,7 +540,17 @@ export class ChatService {
     });
   }
 
-  private finalizeAssistantMessage(): void {
+  private cancelPendingTokenFlush(): void {
+    if (this.flushRafId !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this.flushRafId);
+    }
+    this.flushRafId = null;
+    this.pendingTokenBuffer = '';
+  }
+
+  private finalizeAssistantMessage(sessionId?: string | null): void {
+    if (sessionId && !this.isStreamActiveFor(sessionId)) return;
+
     this.messages.update((list) => {
       if (list.length === 0) return list;
       const lastIdx = list.length - 1;
@@ -449,7 +566,9 @@ export class ChatService {
     });
   }
 
-  private handleStreamError(errorMessage: string): void {
+  private handleStreamError(errorMessage: string, sessionId?: string | null): void {
+    if (sessionId && !this.isStreamActiveFor(sessionId)) return;
+
     this.streamError.set(errorMessage);
     this.messages.update((list) => {
       if (list.length === 0) return list;

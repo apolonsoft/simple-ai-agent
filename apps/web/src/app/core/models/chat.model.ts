@@ -17,6 +17,7 @@ export interface ToolCall {
 
 export interface ChatMessage {
   id?: string;
+  clientId?: string;
   session_id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;

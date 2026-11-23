@@ -26,7 +26,7 @@ export function splitSseBuffer(buffer: string): SseBufferSplit {
  */
 export function parseSseBlock(block: string): ParsedSseBlock | null {
   let eventType = 'chunk';
-  let dataStr = '';
+  const dataLines: string[] = [];
 
   const lines = block.split(/\r?\n/);
   for (const rawLine of lines) {
@@ -35,10 +35,10 @@ export function parseSseBlock(block: string): ParsedSseBlock | null {
       eventType = line.slice(6).trim();
     } else if (line.startsWith('data:')) {
       const rawData = line.slice(5);
-      dataStr = rawData.startsWith(' ') ? rawData.slice(1) : rawData;
+      dataLines.push(rawData.startsWith(' ') ? rawData.slice(1) : rawData);
     }
   }
 
-  if (!dataStr) return null;
-  return { eventType, dataStr };
+  if (dataLines.length === 0) return null;
+  return { eventType, dataStr: dataLines.join('\n') };
 }

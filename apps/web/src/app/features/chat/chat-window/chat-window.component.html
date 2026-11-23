@@ -48,7 +48,7 @@
         </div>
       } @else {
         <div class="message-feed max-w-[640px] w-full mx-auto flex flex-col gap-6">
-          @for (msg of messages(); track $index) {
+          @for (msg of messages(); track msg.id ?? msg.clientId ?? $index) {
             <div class="message-row flex gap-3 w-full" [class.user-row]="msg.role === 'user'" [class.assistant-row]="msg.role === 'assistant'" [class.flex-row-reverse]="msg.role === 'user'">
               <!-- Avatar Circle: 28px -->
               <div class="avatar w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs shadow-[0_1px_2px_rgba(0,0,0,0.06)]"

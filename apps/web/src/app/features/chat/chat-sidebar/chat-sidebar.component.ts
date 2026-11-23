@@ -26,10 +26,6 @@ export class ChatSidebarComponent implements OnInit {
     this.chatService.createSession().subscribe();
   }
 
-  onSelect(id: string): void {
-    this.chatService.selectSession(id);
-  }
-
   onDelete(id: string, event: MouseEvent): void {
     event.stopPropagation();
     event.preventDefault();
