@@ -63,4 +63,22 @@ describe('RegisterComponent', () => {
     });
     expect(component.successMessage()).toContain('Account created successfully');
   });
+
+  it('should cancel pending redirect timer when component is destroyed', () => {
+    vi.useFakeTimers();
+    mockAuthService.register.mockReturnValue(of({ id: 'new-id', email: 'newuser@example.com' }));
+
+    component.registerForm.setValue({
+      email: 'newuser@example.com',
+      password: 'password123',
+      confirmPassword: 'password123',
+    });
+
+    component.onSubmit();
+    fixture.destroy();
+    vi.advanceTimersByTime(1500);
+
+    expect(router.navigate).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });

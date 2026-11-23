@@ -199,6 +199,27 @@ describe('ProfileComponent', () => {
     vi.useRealTimers();
   });
 
+  it('should cancel pending logout timer if destroyed before delay elapses', () => {
+    vi.useFakeTimers();
+    vi.spyOn(authService, 'changePassword').mockReturnValue(
+      of({ message: 'Password changed successfully.' })
+    );
+    const logoutSpy = vi.spyOn(authService, 'logout');
+
+    component.passwordForm.patchValue({
+      current_password: 'CurrentPassword123',
+      new_password: 'NewPassword123!',
+      confirm_password: 'NewPassword123!',
+    });
+
+    component.onChangePassword();
+    fixture.destroy();
+    vi.advanceTimersByTime(2500);
+
+    expect(logoutSpy).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it('should display error message when change password fails', () => {
     vi.spyOn(authService, 'changePassword').mockReturnValue(
       throwError(() => ({ error: { detail: 'Current password is incorrect.' } }))

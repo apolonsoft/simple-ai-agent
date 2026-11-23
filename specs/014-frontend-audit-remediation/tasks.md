@@ -10,5 +10,5 @@ Execute strictly one task at a time per `.agent/rules/task-by-task.md` and `.age
 - [x] Task 06: Reactive User Detail Routing, Unban RBAC Guard & Shared Ban Modal (`tasks/task-06-admin-detail-rbac-and-modal.md`)
 - [x] Task 07: Replace Scroll `MutationObserver` & Timer Cascade with Smart rAF Auto-Scroll (`tasks/task-07-smart-chat-scroll.md`)
 - [x] Task 08: Enable `OnPush` Everywhere & Replace Template Method Calls with Pure Pipes (`tasks/task-08-onpush-and-pure-pipes.md`)
-- [ ] Task 09: Bundle Local PDF.js Worker, Surface Chat/PDF Errors & Clean Up Timers (`tasks/task-09-pdf-worker-errors-and-timers.md`)
+- [x] Task 09: Bundle Local PDF.js Worker, Surface Chat/PDF Errors & Clean Up Timers (`tasks/task-09-pdf-worker-errors-and-timers.md`)
 - [ ] Task 10: Enable Strict TypeScript, Unify Form Validators & Sync Shared Contracts (`tasks/task-10-strict-ts-validators-and-contracts.md`)

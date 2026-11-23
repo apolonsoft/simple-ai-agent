@@ -1,4 +1,5 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
+import * as pdfjsLib from 'pdfjs-dist';
 import { PdfViewerModalComponent } from './pdf-viewer-modal.component';
 
 describe('PdfViewerModalComponent', () => {
@@ -89,5 +90,24 @@ describe('PdfViewerModalComponent', () => {
     const downloadBtn = fixture.nativeElement.querySelector('.btn-download') as HTMLButtonElement;
     downloadBtn.click();
     expect(downloadedName).toBe('test_sample.pdf');
+  });
+
+  it('should configure self-hosted workerSrc and dialog ARIA attributes', () => {
+    expect(pdfjsLib.GlobalWorkerOptions.workerSrc).toBe('/assets/pdf.worker.min.mjs');
+
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector('[role="dialog"]');
+    expect(dialog).toBeTruthy();
+    expect(dialog?.getAttribute('aria-modal')).toBe('true');
+  });
+
+  it('should destroy previous pdfDoc when a new pdfBlob is provided', async () => {
+    const destroySpy = vi.fn().mockResolvedValue(undefined);
+    (component as any).pdfDoc = { destroy: destroySpy };
+
+    fixture.componentRef.setInput('pdfBlob', new Blob(['pdf-2'], { type: 'application/pdf' }));
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect(destroySpy).toHaveBeenCalled();
   });
 });

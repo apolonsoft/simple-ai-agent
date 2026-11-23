@@ -1,6 +1,6 @@
 ### Task 09: Bundle Local PDF.js Worker, Surface Chat/PDF Errors & Clean Up Timers
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 **MEDIUM + LOW (Audit Findings #15, #16, #17, #22).**

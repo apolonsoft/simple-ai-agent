@@ -30,11 +30,15 @@ describe('ChatSidebarComponent', () => {
   let sessionsSignal = signal<ChatSession[]>([]);
   let activeSessionIdSignal = signal<string | null>(null);
   let isLoadingSignal = signal<boolean>(false);
+  let isCreatingSignal = signal<boolean>(false);
+  let sidebarErrorSignal = signal<string | null>(null);
 
   let mockChatService: {
     sessions: typeof sessionsSignal;
     activeSessionId: typeof activeSessionIdSignal;
     isLoadingSessions: typeof isLoadingSignal;
+    isCreatingSession: typeof isCreatingSignal;
+    sidebarError: typeof sidebarErrorSignal;
     loadSessions: ReturnType<typeof vi.fn>;
     createSession: ReturnType<typeof vi.fn>;
     deleteSession: ReturnType<typeof vi.fn>;
@@ -45,11 +49,15 @@ describe('ChatSidebarComponent', () => {
     sessionsSignal = signal<ChatSession[]>([]);
     activeSessionIdSignal = signal<string | null>(null);
     isLoadingSignal = signal<boolean>(false);
+    isCreatingSignal = signal<boolean>(false);
+    sidebarErrorSignal = signal<string | null>(null);
 
     mockChatService = {
       sessions: sessionsSignal,
       activeSessionId: activeSessionIdSignal,
       isLoadingSessions: isLoadingSignal,
+      isCreatingSession: isCreatingSignal,
+      sidebarError: sidebarErrorSignal,
       loadSessions: vi.fn().mockReturnValue(of([])),
       createSession: vi.fn().mockReturnValue(of(mockSessions[0])),
       deleteSession: vi.fn().mockReturnValue(of(undefined)),
@@ -142,5 +150,18 @@ describe('ChatSidebarComponent', () => {
     expect(mockChatService.deleteSession).toHaveBeenCalledWith('session-101');
     expect(stopPropagationSpy).toHaveBeenCalled();
     expect(preventDefaultSpy).toHaveBeenCalled();
+  });
+
+  it('should guard against duplicate createSession clicks and display sidebarError', () => {
+    isCreatingSignal.set(true);
+    fixture.detectChanges();
+    component.onNewChat();
+    expect(mockChatService.createSession).not.toHaveBeenCalled();
+
+    sidebarErrorSignal.set('Failed to create conversation.');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.sidebar-error')?.textContent).toContain(
+      'Failed to create conversation.'
+    );
   });
 });

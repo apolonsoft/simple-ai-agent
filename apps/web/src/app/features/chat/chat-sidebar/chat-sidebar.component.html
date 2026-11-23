@@ -2,13 +2,20 @@
   <!-- Sidebar Header: New Chat Button -->
   <div class="sidebar-header p-3 border-b border-[#d1d1cd] shrink-0">
     <button
-      class="new-chat-btn w-full h-9 px-3 rounded-full bg-[#27251e] text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#000000] active:scale-[0.99] transition-all cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+      class="new-chat-btn w-full h-9 px-3 rounded-full bg-[#27251e] text-white text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#000000] active:scale-[0.99] transition-all cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.06)] disabled:opacity-50 disabled:cursor-not-allowed"
+      [disabled]="isCreating?.()"
       (click)="onNewChat()"
     >
       <span class="btn-icon text-base leading-none font-normal">+</span>
       <span>New Chat</span>
     </button>
   </div>
+
+  @if (sidebarError?.(); as err) {
+    <div class="sidebar-error mx-2 mt-2 px-2.5 py-2 rounded-lg bg-red-50 border border-red-200 text-[11px] text-red-700">
+      {{ err }}
+    </div>
+  }
 
   <!-- Session List Container -->
   <div class="session-list-container flex-1 min-h-0 overflow-y-auto p-2">

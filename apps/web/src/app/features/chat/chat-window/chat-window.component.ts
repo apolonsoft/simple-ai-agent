@@ -51,6 +51,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   readonly promptText = signal<string>('');
   private stickToBottom = true;
   private scrollRafId: number | null = null;
+  private readonly activeTimers = new Set<ReturnType<typeof setTimeout>>();
 
   constructor() {
     effect(() => {
@@ -75,6 +76,10 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
       cancelAnimationFrame(this.scrollRafId);
       this.scrollRafId = null;
     }
+    for (const timer of this.activeTimers) {
+      clearTimeout(timer);
+    }
+    this.activeTimers.clear();
     this.closePdfViewer();
   }
 
@@ -175,6 +180,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
       },
       error: (err) => {
         console.error('Failed to load PDF for preview', err);
+        this.chatService.streamError.set('Failed to load PDF for preview.');
       },
     });
   }
@@ -185,21 +191,36 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   }
 
   downloadPdf(filename: string): void {
+    const cachedBlob = this.activePdfBlob();
+    if (cachedBlob && this.previewFilename() === filename) {
+      this.triggerBlobDownload(cachedBlob, filename);
+      return;
+    }
+
     this.chatService.getPdfBlob(filename).subscribe({
       next: (blob) => {
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        this.triggerBlobDownload(blob, filename);
       },
       error: (err) => {
         console.error('Failed to download PDF', err);
+        this.chatService.streamError.set('Failed to download PDF.');
       },
     });
+  }
+
+  private triggerBlobDownload(blob: Blob, filename: string): void {
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    const timer = setTimeout(() => {
+      this.activeTimers.delete(timer);
+      URL.revokeObjectURL(blobUrl);
+    }, 1000);
+    this.activeTimers.add(timer);
   }
 
   toggleToolsMenu(): void {
@@ -234,10 +255,12 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
         const textSpan = copyBtn.querySelector('.copy-text');
         if (textSpan) textSpan.textContent = 'Copied!';
         copyBtn.classList.add('copied');
-        setTimeout(() => {
+        const timer = setTimeout(() => {
+          this.activeTimers.delete(timer);
           if (textSpan) textSpan.textContent = 'Copy';
           copyBtn.classList.remove('copied');
         }, 2000);
+        this.activeTimers.add(timer);
       }).catch(() => {
         // clipboard access restricted
       });

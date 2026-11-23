@@ -1,5 +1,11 @@
 <div class="pdf-modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 md:p-6" (click)="close()">
-  <div class="pdf-modal-card bg-[#ffffff] rounded-2xl max-w-5xl w-full h-[92vh] flex flex-col shadow-2xl border border-[#d1d1cd] overflow-hidden" (click)="$event.stopPropagation()">
+  <div
+    class="pdf-modal-card bg-[#ffffff] rounded-2xl max-w-5xl w-full h-[92vh] flex flex-col shadow-2xl border border-[#d1d1cd] overflow-hidden"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-label]="filename()"
+    (click)="$event.stopPropagation()"
+  >
     
     <!-- Top Action & Navigation Bar -->
     <header class="pdf-toolbar flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-[#d1d1cd] bg-[#faf8f5] select-none shrink-0">
