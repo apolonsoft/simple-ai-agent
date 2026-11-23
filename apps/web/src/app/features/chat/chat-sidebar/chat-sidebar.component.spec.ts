@@ -115,16 +115,16 @@ describe('ChatSidebarComponent', () => {
     expect(mockChatService.createSession).toHaveBeenCalled();
   });
 
-  it('should trigger selectSession on item click', async () => {
+  it('should navigate via routerLink without calling selectSession directly on item click', async () => {
     sessionsSignal.set(mockSessions);
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
     const firstItem = compiled.querySelector('.session-item') as HTMLElement;
     firstItem.click();
-
-    expect(mockChatService.selectSession).toHaveBeenCalledWith('session-101');
     await fixture.whenStable();
+
+    expect(mockChatService.selectSession).not.toHaveBeenCalled();
   });
 
   it('should trigger deleteSession and stop propagation on delete button click', () => {

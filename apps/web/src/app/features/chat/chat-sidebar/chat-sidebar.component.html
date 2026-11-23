@@ -39,7 +39,6 @@
             [class.hover:bg-[#e8e6e1]/70]="activeSessionId() !== session.id"
             [class.text-[#72706b]]="activeSessionId() !== session.id"
             [routerLink]="['/chat', session.id]"
-            (click)="onSelect(session.id)"
           >
             <div class="item-content flex items-center gap-2 min-w-0 pr-1 flex-1">
               @if (activeSessionId() === session.id) {

@@ -1,6 +1,6 @@
 ### Task 03: Fix Chat Stream Races, Session Switching, 401 Handling & Duplicate Loads
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 **HIGH + MEDIUM + LOW (Audit Findings #2, #4, #6, #9, #12, #21).**

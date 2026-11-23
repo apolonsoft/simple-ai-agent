@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
 import { ChatService } from './chat.service';
+import { AuthService } from './auth.service';
 import { ChatSession, ChatMessage } from '../models/chat.model';
 
 describe('ChatService', () => {
@@ -467,5 +468,108 @@ describe('ChatService', () => {
     expect(req.request.method).toBe('GET');
     expect(req.request.responseType).toBe('blob');
     req.flush(mockBlob);
+  });
+
+  it('should abort active stream and cancel in-flight loadMessages when switching sessions', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const controllerRef: { current: ReadableStreamDefaultController<Uint8Array> | null } = {
+      current: null,
+    };
+
+    const pendingStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controllerRef.current = controller;
+        controller.enqueue(new TextEncoder().encode('event: chunk\ndata: {"content":"Session 1 "}\n\n'));
+      },
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      capturedSignal = init?.signal as AbortSignal;
+      return Promise.resolve(new Response(pendingStream, { status: 200 }));
+    });
+
+    service.selectSession('session-1');
+    const load1 = httpTestingController.expectOne('/api/v1/chats/session-1/messages');
+    load1.flush([]);
+
+    const streamPromise = service.sendMessageStream('session-1', 'Hello');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(capturedSignal?.aborted).toBe(false);
+
+    service.selectSession('session-2');
+    expect(capturedSignal?.aborted).toBe(true);
+
+    // Enqueue a late chunk for session-1 after switching; it must not overwrite session-2
+    try {
+      controllerRef.current?.enqueue(new TextEncoder().encode('event: chunk\ndata: {"content":"LEAK"}\n\n'));
+      controllerRef.current?.close();
+    } catch {
+      // stream already closed
+    }
+
+    const load2 = httpTestingController.expectOne('/api/v1/chats/session-2/messages');
+    load2.flush([{ id: 'm-s2', session_id: 'session-2', role: 'user', content: 'Session 2 msg' }]);
+
+    await streamPromise;
+
+    expect(service.activeSessionId()).toBe('session-2');
+    expect(service.messages()).toEqual([
+      { id: 'm-s2', session_id: 'session-2', role: 'user', content: 'Session 2 msg' },
+    ]);
+  });
+
+  it('should pass AbortSignal to approveToolCall and abort when abortStream is called', async () => {
+    service.messages.set([
+      {
+        id: 'msg-ast-abort',
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ id: 'call-1', tool: 'calculator', arguments: {}, status: 'pending' }],
+      },
+    ]);
+
+    let capturedSignal: AbortSignal | undefined;
+    vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      capturedSignal = init?.signal as AbortSignal;
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+      });
+    });
+
+    const approvalPromise = service.approveToolCall('session-1', 'msg-ast-abort', 'call-1', true);
+    expect(capturedSignal?.aborted).toBe(false);
+
+    service.abortStream();
+    await approvalPromise;
+
+    expect(capturedSignal?.aborted).toBe(true);
+    expect(service.messages()[0].tool_calls?.[0].status).toBe('pending');
+    expect(service.isExecutingTool()).toBe(false);
+  });
+
+  it('should call AuthService.logout() on HTTP 401 from sendMessageStream and approveToolCall', async () => {
+    const authService = TestBed.inject(AuthService);
+    const logoutSpy = vi.spyOn(authService, 'logout').mockImplementation(() => {});
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 401 }));
+    await service.sendMessageStream('session-1', 'Test 401');
+    expect(logoutSpy).toHaveBeenCalledTimes(1);
+
+    service.messages.set([
+      {
+        id: 'msg-401',
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ id: 'call-401', tool: 'calculator', arguments: {}, status: 'pending' }],
+      },
+    ]);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 401 }));
+    await service.approveToolCall('session-1', 'msg-401', 'call-401', true);
+    expect(logoutSpy).toHaveBeenCalledTimes(2);
+    expect(service.messages()[0].tool_calls?.[0].status).toBe('pending');
   });
 });

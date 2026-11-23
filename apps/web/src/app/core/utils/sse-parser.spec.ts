@@ -61,5 +61,12 @@ describe('sse-parser', () => {
       expect(parseSseBlock('   \n  ')).toBeNull();
       expect(parseSseBlock('event: ping\n: keepalive')).toBeNull();
     });
+
+    it('joins multiple data lines with newline per SSE spec', () => {
+      expect(parseSseBlock('event: chunk\ndata: line1\ndata: line2')).toEqual({
+        eventType: 'chunk',
+        dataStr: 'line1\nline2',
+      });
+    });
   });
 });
