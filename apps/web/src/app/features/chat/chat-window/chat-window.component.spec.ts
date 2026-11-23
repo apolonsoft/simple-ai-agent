@@ -1,6 +1,6 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { ChatWindowComponent } from './chat-window.component';
 import { ChatService } from '../../../core/services/chat.service';
 import { ChatSession, ChatMessage } from '../../../core/models/chat.model';
@@ -423,5 +423,29 @@ describe('ChatWindowComponent', () => {
 
     cancelSpy.mockRestore();
     vi.useRealTimers();
+  });
+
+  it('should reuse activePdfBlob when downloading from open preview modal and surface PDF errors', () => {
+    const cachedBlob = new Blob(['%PDF-1.4 cached'], { type: 'application/pdf' });
+    component.activePdfBlob.set(cachedBlob);
+    component.previewFilename.set('report.pdf');
+    mockChatService.getPdfBlob.mockClear();
+
+    const origCreateObjectURL = URL.createObjectURL;
+    const origRevokeObjectURL = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-url');
+    URL.revokeObjectURL = vi.fn();
+
+    component.downloadPdf('report.pdf');
+    expect(mockChatService.getPdfBlob).not.toHaveBeenCalled();
+
+    URL.createObjectURL = origCreateObjectURL;
+    URL.revokeObjectURL = origRevokeObjectURL;
+
+    mockChatService.getPdfBlob.mockReturnValueOnce(
+      throwError(() => new Error('Network failure'))
+    );
+    component.openPdfViewer('broken.pdf');
+    expect(streamErrorSignal()).toBe('Failed to load PDF for preview.');
   });
 });

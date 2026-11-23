@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal, computed } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { UserService } from '../../core/services/user.service';
@@ -16,6 +16,17 @@ export class ProfileComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly userService = inject(UserService);
   readonly authService = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
+  private logoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      if (this.logoutTimer !== null) {
+        clearTimeout(this.logoutTimer);
+        this.logoutTimer = null;
+      }
+    });
+  }
 
   readonly user = computed(() => this.authService.currentUser());
   readonly isLoading = signal<boolean>(false);
@@ -171,7 +182,8 @@ export class ProfileComponent implements OnInit {
           'Password changed successfully! All sessions revoked. Redirecting to login...'
         );
         this.passwordForm.reset();
-        setTimeout(() => {
+        this.logoutTimer = setTimeout(() => {
+          this.logoutTimer = null;
           this.authService.logout();
         }, 2000);
       },

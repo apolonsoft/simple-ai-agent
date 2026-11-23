@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
@@ -24,6 +24,17 @@ export class RegisterComponent {
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private redirectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      if (this.redirectTimer !== null) {
+        clearTimeout(this.redirectTimer);
+        this.redirectTimer = null;
+      }
+    });
+  }
 
   readonly isSubmitting = signal<boolean>(false);
   readonly errorMessage = signal<string | null>(null);
@@ -57,7 +68,8 @@ export class RegisterComponent {
     this.authService.register({ email, password }).subscribe({
       next: () => {
         this.successMessage.set('Account created successfully! Redirecting to sign in...');
-        setTimeout(() => {
+        this.redirectTimer = setTimeout(() => {
+          this.redirectTimer = null;
           this.router.navigate(['/login']);
         }, 1200);
       },

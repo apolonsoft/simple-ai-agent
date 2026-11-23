@@ -33,6 +33,8 @@ export class ChatService {
     this.messages.set([]);
     this.activeSessionId.set(null);
     this.isLoadingSessions.set(false);
+    this.isCreatingSession.set(false);
+    this.sidebarError.set(null);
     this.isLoadingMessages.set(false);
     this.isExecutingTool.set(false);
     this.streamError.set(null);
@@ -42,6 +44,8 @@ export class ChatService {
   readonly sessions = signal<ChatSession[]>([]);
   readonly activeSessionId = signal<string | null>(null);
   readonly isLoadingSessions = signal<boolean>(false);
+  readonly isCreatingSession = signal<boolean>(false);
+  readonly sidebarError = signal<string | null>(null);
 
   // Messages and streaming state
   readonly messages = signal<ChatMessage[]>([]);
@@ -58,6 +62,7 @@ export class ChatService {
 
   loadSessions(): Observable<ChatSession[]> {
     this.isLoadingSessions.set(true);
+    this.sidebarError.set(null);
     return this.http.get<ChatSession[]>('/api/v1/chats').pipe(
       tap({
         next: (items) => {
@@ -66,36 +71,52 @@ export class ChatService {
         },
         error: () => {
           this.isLoadingSessions.set(false);
+          this.sidebarError.set('Failed to load conversations.');
         },
       })
     );
   }
 
   createSession(title: string = 'New Chat'): Observable<ChatSession> {
+    this.isCreatingSession.set(true);
+    this.sidebarError.set(null);
     const payload: CreateSessionRequest = { title };
     return this.http.post<ChatSession>('/api/v1/chats', payload).pipe(
-      tap((newSession) => {
-        this.sessions.update((prev) => [newSession, ...prev]);
-        this.activeSessionId.set(newSession.id);
-        this.router.navigate(['/chat', newSession.id]);
+      tap({
+        next: (newSession) => {
+          this.sessions.update((prev) => [newSession, ...prev]);
+          this.activeSessionId.set(newSession.id);
+          this.isCreatingSession.set(false);
+          this.router.navigate(['/chat', newSession.id]);
+        },
+        error: () => {
+          this.isCreatingSession.set(false);
+          this.sidebarError.set('Failed to create conversation.');
+        },
       })
     );
   }
 
   deleteSession(sessionId: string): Observable<void> {
+    this.sidebarError.set(null);
     return this.http.delete<void>(`/api/v1/chats/${sessionId}`).pipe(
-      tap(() => {
-        this.sessions.update((prev) => prev.filter((s) => s.id !== sessionId));
-        if (this.activeSessionId() === sessionId) {
-          const remaining = this.sessions();
-          if (remaining.length > 0) {
-            this.activeSessionId.set(remaining[0].id);
-            this.router.navigate(['/chat', remaining[0].id]);
-          } else {
-            this.activeSessionId.set(null);
-            this.router.navigate(['/chat']);
+      tap({
+        next: () => {
+          this.sessions.update((prev) => prev.filter((s) => s.id !== sessionId));
+          if (this.activeSessionId() === sessionId) {
+            const remaining = this.sessions();
+            if (remaining.length > 0) {
+              this.activeSessionId.set(remaining[0].id);
+              this.router.navigate(['/chat', remaining[0].id]);
+            } else {
+              this.activeSessionId.set(null);
+              this.router.navigate(['/chat']);
+            }
           }
-        }
+        },
+        error: () => {
+          this.sidebarError.set('Failed to delete conversation.');
+        },
       })
     );
   }
@@ -136,6 +157,7 @@ export class ChatService {
         },
         error: () => {
           this.isLoadingMessages.set(false);
+          this.streamError.set('Failed to load conversation messages.');
         },
       })
     );

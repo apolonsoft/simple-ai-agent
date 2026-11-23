@@ -13,9 +13,9 @@ import {
 } from '@angular/core';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure worker URL using CDN matching the installed version
-if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Configure worker URL using local self-hosted asset
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/assets/pdf.worker.min.mjs';
 }
 
 export interface Point {
@@ -71,6 +71,7 @@ export class PdfViewerModalComponent implements AfterViewInit, OnDestroy {
 
   private pdfDoc: any = null;
   private renderTask: any = null;
+  private loadSequence = 0;
   private unscaledWidth: number = 595;
   private unscaledHeight: number = 842;
 
@@ -113,6 +114,19 @@ export class PdfViewerModalComponent implements AfterViewInit, OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (
+      target &&
+      (target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable)
+    ) {
+      if (event.key === 'Escape') {
+        this.close();
+      }
+      return;
+    }
+
     if (event.key === 'Escape') {
       this.close();
     } else if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
@@ -123,21 +137,50 @@ export class PdfViewerModalComponent implements AfterViewInit, OnDestroy {
   }
 
   private async loadPdfFromBlob(blob: Blob): Promise<void> {
+    const seq = ++this.loadSequence;
     this.isLoading.set(true);
     this.renderError.set(null);
+
+    if (this.renderTask) {
+      try {
+        this.renderTask.cancel();
+      } catch {
+        // ignore cancellation errors
+      }
+      this.renderTask = null;
+    }
+
+    if (this.pdfDoc) {
+      try {
+        await this.pdfDoc.destroy();
+      } catch {
+        // ignore destroy errors
+      }
+      this.pdfDoc = null;
+    }
+
     try {
       const arrayBuffer = await blob.arrayBuffer();
+      if (seq !== this.loadSequence) return;
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      this.pdfDoc = await loadingTask.promise;
+      const loadedDoc = await loadingTask.promise;
+      if (seq !== this.loadSequence) {
+        await loadedDoc.destroy().catch(() => {});
+        return;
+      }
+      this.pdfDoc = loadedDoc;
       this.totalPages.set(this.pdfDoc.numPages);
       this.currentPage.set(1);
       this.pageAnnotations.clear();
       await this.renderCurrentPage();
     } catch (err: any) {
+      if (seq !== this.loadSequence) return;
       console.error('Failed to parse PDF document', err);
       this.renderError.set(err?.message || 'Failed to load PDF document.');
     } finally {
-      this.isLoading.set(false);
+      if (seq === this.loadSequence) {
+        this.isLoading.set(false);
+      }
     }
   }
 

@@ -17,18 +17,21 @@ export class ChatSidebarComponent implements OnInit {
   readonly sessions = this.chatService.sessions;
   readonly activeSessionId = this.chatService.activeSessionId;
   readonly isLoading = this.chatService.isLoadingSessions;
+  readonly isCreating = this.chatService.isCreatingSession;
+  readonly sidebarError = this.chatService.sidebarError;
 
   ngOnInit(): void {
-    this.chatService.loadSessions().subscribe();
+    this.chatService.loadSessions().subscribe({ error: () => {} });
   }
 
   onNewChat(): void {
-    this.chatService.createSession().subscribe();
+    if (this.isCreating?.()) return;
+    this.chatService.createSession().subscribe({ error: () => {} });
   }
 
   onDelete(id: string, event: MouseEvent): void {
     event.stopPropagation();
     event.preventDefault();
-    this.chatService.deleteSession(id).subscribe();
+    this.chatService.deleteSession(id).subscribe({ error: () => {} });
   }
 }
