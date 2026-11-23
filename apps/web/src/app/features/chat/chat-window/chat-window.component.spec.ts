@@ -377,4 +377,51 @@ describe('ChatWindowComponent', () => {
 
     expect(writeTextMock).toHaveBeenCalledWith('print("hi")');
   });
+
+  it('should preserve upward scroll during streaming and auto-scroll when near bottom or sending a message', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    vi.useFakeTimers();
+    const cancelSpy = vi.spyOn(globalThis, 'cancelAnimationFrame');
+
+    fixture.componentRef.setInput('sessionId', 'session-42');
+    messagesSignal.set([{ id: 'm1', role: 'assistant', content: 'Initial' }]);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(20);
+
+    const viewport = (fixture.nativeElement as HTMLElement).querySelector('.messages-viewport') as HTMLDivElement;
+    Object.defineProperty(viewport, 'scrollHeight', { value: 1000, configurable: true });
+    Object.defineProperty(viewport, 'clientHeight', { value: 400, configurable: true });
+    let currentScrollTop = 100;
+    Object.defineProperty(viewport, 'scrollTop', {
+      get: () => currentScrollTop,
+      set: (v: number) => {
+        currentScrollTop = v;
+      },
+      configurable: true,
+    });
+
+    // User scrolls up (1000 - 100 - 400 = 500 > 80)
+    viewport.dispatchEvent(new Event('scroll'));
+
+    // Incoming streamed token must NOT yank scrollTop back to bottom
+    messagesSignal.set([{ id: 'm1', role: 'assistant', content: 'Initial + streamed' }]);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(20);
+    expect(currentScrollTop).toBe(100);
+
+    // Sending a new message forces stick-to-bottom and schedules scroll
+    component.promptText = 'Next question';
+    component.sendMessage();
+    vi.advanceTimersByTime(20);
+    expect(currentScrollTop).toBe(1000);
+
+    // Destroying cancels pending rAF if scheduled
+    messagesSignal.set([{ id: 'm1', role: 'assistant', content: 'More' }]);
+    fixture.detectChanges();
+    fixture.destroy();
+    expect(cancelSpy).toHaveBeenCalled();
+
+    cancelSpy.mockRestore();
+    vi.useRealTimers();
+  });
 });
