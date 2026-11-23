@@ -117,6 +117,21 @@ class AdminService:
             updated_at=user.updated_at,
         )
 
+    @staticmethod
+    def _assert_can_moderate(
+        actor: UserModel, target: UserModel, action: str = "ban"
+    ) -> None:
+        if actor.id == target.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Administrators cannot {action} their own account.",
+            )
+        if actor.role != "super_admin" and target.role in ("admin", "super_admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Insufficient permissions to {action} administrative accounts.",
+            )
+
     async def ban_user(
         self,
         admin_user: UserModel,
@@ -130,19 +145,7 @@ class AdminService:
                 detail=f"User with ID '{target_user_id}' was not found.",
             )
 
-        # Self-ban guardrail
-        if admin_user.id == target_user_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Administrators cannot ban their own account.",
-            )
-
-        # Administrative hierarchy guardrails
-        if admin_user.role != "super_admin" and target.role in ("admin", "super_admin"):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions to ban administrative accounts.",
-            )
+        self._assert_can_moderate(admin_user, target, action="ban")
 
         if admin_user.role == "super_admin" and target.role == "super_admin":
             raise HTTPException(
@@ -175,6 +178,8 @@ class AdminService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"User with ID '{target_user_id}' was not found.",
             )
+
+        self._assert_can_moderate(admin_user, target, action="unban")
 
         target.is_banned = False
         target.banned_at = None

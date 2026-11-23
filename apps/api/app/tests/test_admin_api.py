@@ -300,6 +300,48 @@ async def test_admin_unban_does_not_revalidate_pre_ban_token(
 
 
 @pytest.mark.asyncio
+async def test_regular_admin_cannot_unban_admin_but_super_admin_can(
+    client: httpx.AsyncClient,
+):
+    """Regular admins cannot unban administrative accounts; super_admin can."""
+    _, super_token = await create_user_and_token(
+        client, "unban_hier_super@example.com", role="super_admin"
+    )
+    _, regular_admin_token = await create_user_and_token(
+        client, "unban_hier_admin_y@example.com", role="admin"
+    )
+    target_admin, _ = await create_user_and_token(
+        client, "unban_hier_admin_x@example.com", role="admin"
+    )
+
+    super_headers = {"Authorization": f"Bearer {super_token}"}
+    regular_headers = {"Authorization": f"Bearer {regular_admin_token}"}
+
+    # Super admin bans admin X
+    ban_res = await client.post(
+        f"/api/v1/admin/users/{target_admin['id']}/ban",
+        json={"reason": "Policy violation"},
+        headers=super_headers,
+    )
+    assert ban_res.status_code == status.HTTP_200_OK
+
+    # Regular admin Y attempts to unban admin X -> 403 Forbidden
+    forbidden_res = await client.post(
+        f"/api/v1/admin/users/{target_admin['id']}/unban",
+        headers=regular_headers,
+    )
+    assert forbidden_res.status_code == status.HTTP_403_FORBIDDEN
+
+    # Super admin unbans admin X -> 200 OK
+    unban_res = await client.post(
+        f"/api/v1/admin/users/{target_admin['id']}/unban",
+        headers=super_headers,
+    )
+    assert unban_res.status_code == status.HTTP_200_OK
+    assert unban_res.json()["user"]["is_banned"] is False
+
+
+@pytest.mark.asyncio
 async def test_admin_self_ban_guardrail(
     client: httpx.AsyncClient,
 ):

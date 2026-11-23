@@ -1,6 +1,6 @@
 ### Task 12: Enforce Hierarchy on Unban
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [04 — Object-level authorization](../lessons/lesson-04-object-level-authorization.md)
 

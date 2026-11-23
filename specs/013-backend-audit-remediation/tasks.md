@@ -13,7 +13,7 @@ Execute one task at a time (see `.agent/rules/task-by-task.md`). Each task links
 - [x] Task 09: Trust only real client IPs and make rate limiting atomic (`tasks/task-09-rate-limiter-ip-and-atomicity.md`)
 - [x] Task 10: Refuse to start with a default secret key (`tasks/task-10-secret-key-guard.md`)
 - [x] Task 11: Move token revocation to PostgreSQL (`tasks/task-11-db-token-revocation.md`)
-- [ ] Task 12: Enforce hierarchy on unban (`tasks/task-12-unban-hierarchy.md`)
+- [x] Task 12: Enforce hierarchy on unban (`tasks/task-12-unban-hierarchy.md`)
 - [ ] Task 13: Harden the Redis connection pool (`tasks/task-13-redis-pool-hardening.md`)
 - [ ] Task 14: Make the chat cache an atomic bounded list (`tasks/task-14-atomic-chat-cache.md`)
 - [ ] Task 15: Accept JWTs only from the Authorization header (`tasks/task-15-header-only-jwt.md`)
