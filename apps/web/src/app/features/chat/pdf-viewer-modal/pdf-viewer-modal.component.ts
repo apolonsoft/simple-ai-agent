@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   ElementRef,
   ViewChild,
@@ -10,7 +11,6 @@ import {
   OnDestroy,
   HostListener,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure worker URL using CDN matching the installed version
@@ -33,9 +33,10 @@ export interface Stroke {
 @Component({
   selector: 'app-pdf-viewer-modal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './pdf-viewer-modal.component.html',
   styleUrl: './pdf-viewer-modal.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PdfViewerModalComponent implements AfterViewInit, OnDestroy {
   // Inputs & Outputs

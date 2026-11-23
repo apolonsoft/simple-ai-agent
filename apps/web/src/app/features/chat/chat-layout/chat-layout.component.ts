@@ -1,5 +1,4 @@
-import { Component, inject, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, inject, computed } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ChatSidebarComponent } from '../chat-sidebar/chat-sidebar.component';
@@ -7,9 +6,10 @@ import { ChatSidebarComponent } from '../chat-sidebar/chat-sidebar.component';
 @Component({
   selector: 'app-chat-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, ChatSidebarComponent],
+  imports: [RouterOutlet, RouterLink, ChatSidebarComponent],
   templateUrl: './chat-layout.component.html',
   styleUrl: './chat-layout.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChatLayoutComponent {
   private readonly authService = inject(AuthService);

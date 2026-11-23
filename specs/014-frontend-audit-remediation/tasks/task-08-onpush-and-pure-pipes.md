@@ -1,6 +1,6 @@
 ### Task 08: Enable `OnPush` Everywhere & Replace Template Method Calls with Pure Pipes
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 **MEDIUM + LOW (Audit Findings #13, #14, #23).**

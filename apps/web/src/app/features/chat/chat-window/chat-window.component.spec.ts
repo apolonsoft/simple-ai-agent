@@ -117,11 +117,11 @@ describe('ChatWindowComponent', () => {
     fixture.componentRef.setInput('sessionId', 'session-42');
     fixture.detectChanges();
 
-    component.promptText = 'What is FastAPI?';
+    component.promptText.set('What is FastAPI?');
     component.sendMessage();
 
     expect(mockChatService.sendMessageStream).toHaveBeenCalledWith('session-42', 'What is FastAPI?');
-    expect(component.promptText).toBe('');
+    expect(component.promptText()).toBe('');
   });
 
   it('should display stop button when streaming and trigger abortStream', () => {
@@ -410,7 +410,7 @@ describe('ChatWindowComponent', () => {
     expect(currentScrollTop).toBe(100);
 
     // Sending a new message forces stick-to-bottom and schedules scroll
-    component.promptText = 'Next question';
+    component.promptText.set('Next question');
     component.sendMessage();
     vi.advanceTimersByTime(20);
     expect(currentScrollTop).toBe(1000);

@@ -1,5 +1,5 @@
-import { Component, DestroyRef, OnInit, inject, input, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, input, signal, computed } from '@angular/core';
+import { DatePipe, NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -13,8 +13,9 @@ import { BanUserModalComponent } from '../ban-user-modal/ban-user-modal.componen
 @Component({
   selector: 'app-user-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, BanUserModalComponent],
+  imports: [NgClass, DatePipe, FormsModule, RouterLink, BanUserModalComponent],
   templateUrl: './user-detail.component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UserDetailComponent implements OnInit {
   readonly adminService = inject(AdminService);

@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   inject,
   input,
@@ -10,19 +11,22 @@ import {
   OnDestroy,
   HostListener,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ChatMessage, ToolCall } from '../../../core/models/chat.model';
 import { ChatService } from '../../../core/services/chat.service';
 import { MarkdownPipe } from '../../../shared/pipes/markdown.pipe';
 import { PdfViewerModalComponent } from '../pdf-viewer-modal/pdf-viewer-modal.component';
+import { ToolParamsPipe } from '../pipes/tool-params.pipe';
+import { PdfFilenamePipe } from '../pipes/pdf-filename.pipe';
 
 @Component({
   selector: 'app-chat-window',
   standalone: true,
-  imports: [CommonModule, FormsModule, MarkdownPipe, PdfViewerModalComponent],
+  imports: [DatePipe, FormsModule, MarkdownPipe, PdfViewerModalComponent, ToolParamsPipe, PdfFilenamePipe],
   templateUrl: './chat-window.component.html',
   styleUrl: './chat-window.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   private readonly chatService = inject(ChatService);
@@ -44,7 +48,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   readonly previewFilename = signal<string | null>(null);
   readonly isToolsMenuOpen = signal<boolean>(false);
 
-  promptText: string = '';
+  readonly promptText = signal<string>('');
   private stickToBottom = true;
   private scrollRafId: number | null = null;
 
@@ -94,18 +98,18 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   }
 
   sendMessage(): void {
-    const text = this.promptText.trim();
+    const text = this.promptText().trim();
     const sid = this.sessionId();
     if (!text || !sid || this.isStreaming()) return;
 
-    this.promptText = '';
+    this.promptText.set('');
     this.stickToBottom = true;
     this.chatService.sendMessageStream(sid, text);
     this.scheduleScrollToBottom(true);
   }
 
   setQuickPrompt(prompt: string): void {
-    this.promptText = prompt;
+    this.promptText.set(prompt);
   }
 
   onAbort(): void {
@@ -208,6 +212,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
+    if (!this.isToolsMenuOpen()) return;
     const target = event.target as HTMLElement;
     if (!target.closest('.tools-trigger-container')) {
       this.closeToolsMenu();
