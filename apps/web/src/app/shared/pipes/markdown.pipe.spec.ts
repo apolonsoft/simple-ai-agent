@@ -1,5 +1,7 @@
+import { SecurityContext } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { DomSanitizer } from '@angular/platform-browser';
+import hljs from 'highlight.js/lib/core';
 import { MarkdownPipe } from './markdown.pipe';
 
 describe('MarkdownPipe', () => {
@@ -116,5 +118,39 @@ describe('MarkdownPipe', () => {
     expect(result).toContain('<h3 class="md-h3">Header 2</h3>');
     expect(result).toContain('<li>Item One</li>');
     expect(result).toContain('<li>Item Two</li>');
+  });
+
+  it('should return a plain string rather than a SafeHtml bypass object', () => {
+    const result = pipe.transform('**bold**');
+    expect(typeof result).toBe('string');
+    expect(result).toBe('<strong>bold</strong>');
+  });
+
+  it('should produce output safely sanitized by DomSanitizer for adversarial inputs', () => {
+    const imgXss = pipe.transform('<img src=x onerror=alert(1)>');
+    const sanitizedImg = sanitizer.sanitize(SecurityContext.HTML, imgXss) ?? '';
+    expect(sanitizedImg).not.toContain('<img');
+    expect(sanitizedImg).toContain('&lt;img');
+
+    const jsLink = pipe.transform('[x](javascript:alert(1))');
+    const sanitizedJsLink = sanitizer.sanitize(SecurityContext.HTML, jsLink) ?? '';
+    expect(sanitizedJsLink).not.toContain('<a');
+    expect(sanitizedJsLink).not.toContain('href=');
+
+    const nestedUrl = pipe.transform('[click](https://example.com/**foo**)');
+    const sanitizedNested = sanitizer.sanitize(SecurityContext.HTML, nestedUrl) ?? '';
+    expect(sanitizedNested).toContain('href="https://example.com/**foo**"');
+    expect(sanitizedNested).not.toContain('<strong>');
+  });
+
+  it('should render unlabeled code blocks as escaped HTML without calling hljs.highlight', () => {
+    const highlightSpy = vi.spyOn(hljs, 'highlight');
+    const markdown = '```\nconst x = 1 < 2;\n```';
+    const result = pipe.transform(markdown);
+
+    expect(highlightSpy).not.toHaveBeenCalled();
+    expect(result).toContain('<pre><code class="hljs ">const x = 1 &lt; 2;</code></pre>');
+    expect(result).toContain('<span class="copy-code-btn"><span class="copy-text">Copy</span></span>');
+    highlightSpy.mockRestore();
   });
 });

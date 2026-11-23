@@ -1,19 +1,48 @@
-import { Pipe, PipeTransform, inject } from '@angular/core';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import hljs from 'highlight.js';
+import { Pipe, PipeTransform } from '@angular/core';
+import hljs from 'highlight.js/lib/core';
+import python from 'highlight.js/lib/languages/python';
+import typescript from 'highlight.js/lib/languages/typescript';
+import javascript from 'highlight.js/lib/languages/javascript';
+import csharp from 'highlight.js/lib/languages/csharp';
+import java from 'highlight.js/lib/languages/java';
+import php from 'highlight.js/lib/languages/php';
+import ruby from 'highlight.js/lib/languages/ruby';
+import css from 'highlight.js/lib/languages/css';
+import json from 'highlight.js/lib/languages/json';
+import bash from 'highlight.js/lib/languages/bash';
+import sql from 'highlight.js/lib/languages/sql';
+import yaml from 'highlight.js/lib/languages/yaml';
+import xml from 'highlight.js/lib/languages/xml';
+import markdown from 'highlight.js/lib/languages/markdown';
+import go from 'highlight.js/lib/languages/go';
+import rust from 'highlight.js/lib/languages/rust';
+
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('csharp', csharp);
+hljs.registerLanguage('java', java);
+hljs.registerLanguage('php', php);
+hljs.registerLanguage('ruby', ruby);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('yaml', yaml);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('go', go);
+hljs.registerLanguage('rust', rust);
 
 @Pipe({
   name: 'markdown',
   standalone: true,
 })
 export class MarkdownPipe implements PipeTransform {
-  private readonly sanitizer = inject(DomSanitizer);
-
-  transform(value: string | null | undefined): SafeHtml {
+  transform(value: string | null | undefined): string {
     if (!value) return '';
 
-    const html = this.parseMarkdown(value);
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+    return this.parseMarkdown(value);
   }
 
   private escapeHtml(str: string): string {
@@ -71,13 +100,7 @@ export class MarkdownPipe implements PipeTransform {
       }
     }
 
-    // Fallback: auto-detection or escaped html
-    try {
-      const autoResult = hljs.highlightAuto(rawCode);
-      return autoResult.value || this.escapeHtml(rawCode);
-    } catch {
-      return this.escapeHtml(rawCode);
-    }
+    return this.escapeHtml(rawCode);
   }
 
   private parseMarkdown(text: string): string {
@@ -92,13 +115,7 @@ export class MarkdownPipe implements PipeTransform {
         <div class="code-container">
           <div class="code-header">
             <span class="code-lang">${displayLang}</span>
-            <button type="button" class="copy-code-btn" title="Copy code">
-              <svg class="copy-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-              <span class="copy-text">Copy</span>
-            </button>
+            <span class="copy-code-btn"><span class="copy-text">Copy</span></span>
           </div>
           <pre><code class="hljs ${normalizedLang ? 'language-' + normalizedLang : ''}">${highlightedCode}</code></pre>
         </div>
@@ -113,19 +130,29 @@ export class MarkdownPipe implements PipeTransform {
     // 3. Inline code: `code`
     processed = processed.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
 
-    // 4. Headers: #, ##, ###
+    // 4. Markdown links [text](url) extracted before bold/italic so URLs are not mangled
+    const linkUrls: string[] = [];
+    processed = processed.replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      (_match, linkText, url) => {
+        linkUrls.push(url);
+        return `<a href="__LINK_URL_${linkUrls.length - 1}__" target="_blank" rel="noopener noreferrer" class="md-link">${linkText}</a>`;
+      }
+    );
+
+    // 5. Headers: #, ##, ###
     processed = processed.replace(/^### (.*$)/gim, '<h4 class="md-h4">$1</h4>');
     processed = processed.replace(/^## (.*$)/gim, '<h3 class="md-h3">$1</h3>');
     processed = processed.replace(/^# (.*$)/gim, '<h2 class="md-h2">$1</h2>');
 
-    // 5. Bold & Italic
+    // 6. Bold & Italic
     processed = processed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     processed = processed.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-    // 6. Blockquotes
+    // 7. Blockquotes
     processed = processed.replace(/^>\s?(.*)$/gim, '<blockquote class="md-quote">$1</blockquote>');
 
-    // 7. Unordered lists
+    // 8. Unordered lists
     processed = processed.replace(/(?:^[-*]\s+(.+)(?:\r?\n|$))+/gm, (match) => {
       const items = match
         .trim()
@@ -136,11 +163,10 @@ export class MarkdownPipe implements PipeTransform {
       return `<ul class="md-list">${items}</ul>`;
     });
 
-    // 8. Markdown links [text](url)
-    processed = processed.replace(
-      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>'
-    );
+    // 9. Restore link URLs
+    processed = processed.replace(/__LINK_URL_(\d+)__/g, (_match, index) => {
+      return linkUrls[Number(index)] || '';
+    });
 
     // 9. Line breaks outside of code blocks
     processed = processed.replace(/\n/g, '<br/>');
