@@ -106,6 +106,7 @@ export class AdminService {
   }
 
   getUserDetail(userId: string): Observable<AdminUserDetail> {
+    this.selectedUser.set(null);
     this.isLoadingDetail.set(true);
     this.error.set(null);
 

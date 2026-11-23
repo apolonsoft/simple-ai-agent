@@ -273,4 +273,31 @@ describe('UserListComponent', () => {
     expect(component.canChangeRole(sampleUsers[0])).toBe(false); // Self
     expect(component.canChangeRole(sampleUsers[1])).toBe(true); // Other user
   });
+
+  it('should hide Unban button when regular admin views a banned admin or super_admin', () => {
+    mockAuthService.currentUser.set({
+      id: 'regular-admin-1',
+      email: 'admin@platform.com',
+      role: 'admin',
+      is_active: true,
+    });
+    mockAdminService.users.set([
+      {
+        ...sampleUsers[0],
+        id: 'banned-admin-2',
+        role: 'admin',
+        is_banned: true,
+      },
+      {
+        ...sampleUsers[2],
+        id: 'banned-user-3',
+        role: 'user',
+        is_banned: true,
+      },
+    ]);
+    fixture.detectChanges();
+
+    const unbanButtons = (fixture.nativeElement as HTMLElement).querySelectorAll('.btn-unban');
+    expect(unbanButtons.length).toBe(1);
+  });
 });

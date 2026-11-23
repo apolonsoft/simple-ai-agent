@@ -7,12 +7,13 @@ import { EMPTY, Subject, catchError, debounceTime, distinctUntilChanged, merge, 
 import { AdminService } from '../../../core/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { AdminUser, UserRole } from '../../../core/models/admin.model';
-import { canBanUser, canChangeUserRole } from '../../../core/utils/admin-permissions';
+import { canModerateUser, canChangeUserRole } from '../../../core/utils/admin-permissions';
+import { BanUserModalComponent } from '../ban-user-modal/ban-user-modal.component';
 
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, BanUserModalComponent],
   templateUrl: './user-list.component.html',
 })
 export class UserListComponent implements OnInit {
@@ -109,7 +110,7 @@ export class UserListComponent implements OnInit {
   }
 
   canBan(user: AdminUser): boolean {
-    return canBanUser(this.currentUser(), user);
+    return canModerateUser(this.currentUser(), user);
   }
 
   canChangeRole(user: AdminUser): boolean {
@@ -129,12 +130,12 @@ export class UserListComponent implements OnInit {
     this.isSubmitting.set(false);
   }
 
-  confirmBan(): void {
+  confirmBan(reason: string = this.banReason()): void {
     const target = this.targetUser();
     if (!target) return;
 
     this.isSubmitting.set(true);
-    this.adminService.banUser(target.id, this.banReason().trim()).subscribe({
+    this.adminService.banUser(target.id, reason.trim()).subscribe({
       next: () => {
         this.showToast('success', `User ${target.email} has been banned.`);
         this.closeBanModal();
