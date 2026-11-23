@@ -45,11 +45,13 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   readonly isToolsMenuOpen = signal<boolean>(false);
 
   promptText: string = '';
-  private observer?: MutationObserver;
+  private stickToBottom = true;
+  private scrollRafId: number | null = null;
 
   constructor() {
     effect(() => {
       const id = this.sessionId();
+      this.stickToBottom = true;
       this.chatService.selectSession(id);
     });
 
@@ -61,26 +63,22 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    this.scheduleScrollToBottom();
-    this.setupScrollObserver();
+    this.scheduleScrollToBottom(true);
   }
 
   ngOnDestroy(): void {
-    this.observer?.disconnect();
+    if (this.scrollRafId !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(this.scrollRafId);
+      this.scrollRafId = null;
+    }
     this.closePdfViewer();
   }
 
-  private setupScrollObserver(): void {
-    if (typeof MutationObserver !== 'undefined' && this.messagesContainer?.nativeElement) {
-      this.observer = new MutationObserver(() => {
-        this.scrollToBottom();
-      });
-      this.observer.observe(this.messagesContainer.nativeElement, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
-    }
+  onViewportScroll(): void {
+    const el = this.messagesContainer?.nativeElement;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    this.stickToBottom = distanceFromBottom <= 80;
   }
 
   onKeyDown(event: KeyboardEvent): void {
@@ -101,8 +99,9 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
     if (!text || !sid || this.isStreaming()) return;
 
     this.promptText = '';
+    this.stickToBottom = true;
     this.chatService.sendMessageStream(sid, text);
-    this.scheduleScrollToBottom();
+    this.scheduleScrollToBottom(true);
   }
 
   setQuickPrompt(prompt: string): void {
@@ -240,22 +239,26 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  private scheduleScrollToBottom(): void {
-    this.scrollToBottom();
-    if (typeof requestAnimationFrame !== 'undefined') {
-      requestAnimationFrame(() => this.scrollToBottom());
+  private scheduleScrollToBottom(force = false): void {
+    if (!force && !this.stickToBottom) return;
+
+    if (typeof requestAnimationFrame === 'function') {
+      if (this.scrollRafId !== null) return;
+      this.scrollRafId = requestAnimationFrame(() => {
+        this.scrollRafId = null;
+        if (force || this.stickToBottom) {
+          this.scrollToBottom();
+        }
+      });
+    } else {
+      this.scrollToBottom();
     }
-    setTimeout(() => this.scrollToBottom(), 20);
-    setTimeout(() => this.scrollToBottom(), 80);
   }
 
   private scrollToBottom(): void {
     if (this.messagesContainer?.nativeElement) {
       const el = this.messagesContainer.nativeElement;
       el.scrollTop = el.scrollHeight;
-    }
-    if (typeof this.scrollAnchor?.nativeElement?.scrollIntoView === 'function') {
-      this.scrollAnchor.nativeElement.scrollIntoView({ block: 'end' });
     }
   }
 }

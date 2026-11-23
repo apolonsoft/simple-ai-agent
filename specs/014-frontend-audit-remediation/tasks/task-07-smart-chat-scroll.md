@@ -1,6 +1,6 @@
 ### Task 07: Replace Scroll `MutationObserver` & Timer Cascade with Smart rAF Auto-Scroll
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 **HIGH (Audit Finding #8).**

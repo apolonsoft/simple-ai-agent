@@ -14,7 +14,7 @@
     </header>
 
     <!-- Message History Viewport: Centered 640px Max Width -->
-    <div class="messages-viewport flex-1 min-h-0 overflow-y-auto px-4 py-6 flex flex-col relative" #messagesContainer (click)="onMessagesClick($event)">
+    <div class="messages-viewport flex-1 min-h-0 overflow-y-auto px-4 py-6 flex flex-col relative" #messagesContainer (scroll)="onViewportScroll()" (click)="onMessagesClick($event)">
       @if (isLoadingMessages()) {
         <div class="loading-state flex flex-col items-center justify-center my-auto text-[#72706b] gap-3">
           <div class="spinner w-5 h-5 rounded-full border-2 border-[#d1d1cd] border-t-[#27251e] animate-spin"></div>
