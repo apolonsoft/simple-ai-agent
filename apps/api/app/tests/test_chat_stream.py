@@ -271,3 +271,83 @@ async def test_stream_chat_releases_db_connection_postgres():
     checkedout_fn = getattr(engine.pool, "checkedout", None)
     if callable(checkedout_fn):
         assert checkedout_fn() == 0
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_persists_partial_reply_on_disconnect(
+    db_session: AsyncSession,
+):
+    """Closing the stream generator mid-response must persist partial assistant chunks."""
+    import asyncio
+    import uuid
+
+    from sqlalchemy import select
+
+    from app.models.chat import ChatMessageModel, ChatSessionModel
+    from app.models.user import UserModel
+    from app.services.chat_stream_service import ChatStreamService
+
+    class SlowFakeProvider(BaseLLMProvider):
+        @property
+        def provider_name(self) -> str:
+            return "slow_fake"
+
+        async def generate_stream(
+            self,
+            messages,
+            temperature: float = 0.7,
+            max_tokens: int | None = None,
+            **kwargs,
+        ):
+            yield "Hello "
+            yield "world"
+            yield "!"
+            await asyncio.sleep(10)
+
+        async def health_check(self) -> bool:
+            return True
+
+    user = UserModel(
+        id=uuid.uuid4(),
+        email=f"disconnect_{uuid.uuid4().hex[:6]}@example.com",
+        hashed_password="hashed_password",
+        role="user",
+        is_active=True,
+    )
+    session = ChatSessionModel(
+        id=uuid.uuid4(),
+        user_id=user.id,
+        title="Disconnect Test",
+    )
+    db_session.add_all([user, session])
+    await db_session.commit()
+
+    stream_service = ChatStreamService(session_factory=lambda: db_session)
+    with patch(
+        "app.services.chat_stream_service.get_llm_provider",
+        return_value=SlowFakeProvider(),
+    ):
+        gen = stream_service.stream_chat(
+            session_id=session.id,
+            user_id=user.id,
+            user_content="Tell me a story",
+        )
+        # Consume 2 chunk events, then simulate client disconnect
+        ev1 = await gen.__anext__()
+        ev2 = await gen.__anext__()
+        assert ev1["event"] == "chunk"
+        assert ev2["event"] == "chunk"
+        await gen.aclose()
+
+    msgs = list(
+        (
+            await db_session.scalars(
+                select(ChatMessageModel)
+                .where(ChatMessageModel.session_id == session.id)
+                .order_by(ChatMessageModel.created_at.asc())
+            )
+        ).all()
+    )
+    assistant_msgs = [m for m in msgs if m.role == "assistant"]
+    assert len(assistant_msgs) == 1
+    assert "Hello world" in assistant_msgs[0].content

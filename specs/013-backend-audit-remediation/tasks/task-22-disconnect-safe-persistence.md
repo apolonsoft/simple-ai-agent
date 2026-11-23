@@ -1,6 +1,6 @@
 ### Task 22: Persist Partial Replies on Client Disconnect
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [02 — Resource lifetimes: connections, transactions and yield dependencies](../lessons/lesson-02-resource-lifetimes.md)
 

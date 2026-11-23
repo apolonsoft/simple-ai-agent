@@ -23,5 +23,5 @@
 | `task-19` | Cache MCP tool definitions | MEDIUM | 06 | `Completed` | [`task-19-cache-mcp-tools.md`](./task-19-cache-mcp-tools.md) |
 | `task-20` | Input limits and error hygiene | LOW | 01, 05 | `Completed` | [`task-20-input-limits-error-hygiene.md`](./task-20-input-limits-error-hygiene.md) |
 | `task-21` | Gemini key header and admin search escaping | LOW | 09, 01 | `Completed` | [`task-21-gemini-header-search-escape.md`](./task-21-gemini-header-search-escape.md) |
-| `task-22` | Persist partial replies on client disconnect | LOW | 02 | `Pending` | [`task-22-disconnect-safe-persistence.md`](./task-22-disconnect-safe-persistence.md) |
+| `task-22` | Persist partial replies on client disconnect | LOW | 02 | `Completed` | [`task-22-disconnect-safe-persistence.md`](./task-22-disconnect-safe-persistence.md) |
 | `task-23` | Docs, shared contracts and full verification | Gate | all | `Pending` | [`task-23-docs-contracts-verification.md`](./task-23-docs-contracts-verification.md) |

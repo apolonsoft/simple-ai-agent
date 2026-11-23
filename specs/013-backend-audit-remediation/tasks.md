@@ -23,5 +23,5 @@ Execute one task at a time (see `.agent/rules/task-by-task.md`). Each task links
 - [x] Task 19: Cache MCP tool definitions (`tasks/task-19-cache-mcp-tools.md`)
 - [x] Task 20: Input limits and error hygiene (`tasks/task-20-input-limits-error-hygiene.md`)
 - [x] Task 21: Gemini key header and admin search escaping (`tasks/task-21-gemini-header-search-escape.md`)
-- [ ] Task 22: Persist partial replies on client disconnect (`tasks/task-22-disconnect-safe-persistence.md`)
+- [x] Task 22: Persist partial replies on client disconnect (`tasks/task-22-disconnect-safe-persistence.md`)
 - [ ] Task 23: Docs, shared contracts and full verification (`tasks/task-23-docs-contracts-verification.md`)

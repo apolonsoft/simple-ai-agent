@@ -74,6 +74,30 @@ class ChatStreamService:
         self.memory_manager = memory_manager or MemoryManager()
         self.cache_service = cache_service or ChatCacheService()
 
+    async def _persist_assistant(
+        self,
+        session_id: uuid.UUID,
+        user_id: uuid.UUID,
+        content: str,
+        tool_calls: list[dict[str, Any]],
+    ) -> str | None:
+        try:
+            async with self.session_factory() as db:
+                chat_service = ChatService(db, cache_service=self.cache_service)
+                saved_msg = await chat_service.add_message(
+                    session_id=session_id,
+                    user_id=user_id,
+                    role="assistant",
+                    content=content,
+                    tool_calls=tool_calls if tool_calls else None,
+                )
+                if saved_msg:
+                    await self.cache_service.append_message(session_id, saved_msg)
+                    return str(saved_msg.id)
+        except Exception as exc:
+            logger.error(f"Failed to persist assistant message: {exc}", exc_info=True)
+        return None
+
     async def stream_chat(
         self,
         session_id: uuid.UUID,
@@ -141,101 +165,106 @@ class ChatStreamService:
             tools=active_tools,
         )
 
+        persisted = False
+        stream_failed = False
         try:
-            async for token in provider.generate_stream(
-                llm_messages, tools=active_tools
-            ):
-                if isinstance(token, dict):
-                    # Provider emitted a tool call chunk
-                    tool_name = token.get("name") or token.get("tool")
-                    if not tool_name:
-                        continue
-                    call_id = token.get("id") or f"call_{uuid.uuid4().hex[:12]}"
-                    tc_obj = {
-                        "id": call_id,
-                        "tool": tool_name,
-                        "arguments": token.get("arguments", {}),
-                        "status": "pending",
-                    }
-                    detected_tool_calls.append(tc_obj)
-                    yield {
-                        "event": "tool_call",
-                        "data": json.dumps(tc_obj),
-                    }
-                elif isinstance(token, str):
-                    full_response_chunks.append(token)
-                    yield {
-                        "event": "chunk",
-                        "data": json.dumps({"content": token}),
-                    }
-        except (LLMAuthenticationError, LLMConnectionError) as exc:
-            logger.warning("Provider error during LLM stream generation: %s", exc)
-            yield {
-                "event": "error",
-                "data": json.dumps({"error": str(exc)}),
-            }
-            return
-        except Exception:
-            logger.error("Error during LLM stream generation", exc_info=True)
-            yield {
-                "event": "error",
-                "data": json.dumps(
-                    {"error": "The assistant is temporarily unavailable."}
-                ),
-            }
-            return
-
-        # Check for fallback tool calls in text
-        full_response_text = "".join(full_response_chunks)
-        if not detected_tool_calls and full_response_text:
-            cleaned_text, fallback_calls = _extract_tool_calls_from_text(
-                full_response_text
-            )
-            if fallback_calls:
-                detected_tool_calls.extend(fallback_calls)
-                full_response_text = cleaned_text
-                for tc in fallback_calls:
-                    yield {
-                        "event": "tool_call",
-                        "data": json.dumps(tc),
-                    }
-
-        # ==============================================================================
-        # 3. POST-INFERENCE PHASE: Checkout fresh DB session to persist assistant response (~5ms)
-        # ==============================================================================
-        assistant_message_id = None
-
-        if full_response_text or detected_tool_calls:
             try:
-                async with self.session_factory() as db:
-                    chat_service = ChatService(db, cache_service=self.cache_service)
-                    saved_msg = await chat_service.add_message(
-                        session_id=session_id,
-                        user_id=user_id,
-                        role="assistant",
-                        content=full_response_text,
-                        tool_calls=detected_tool_calls if detected_tool_calls else None,
-                    )
-                    if saved_msg:
-                        assistant_message_id = str(saved_msg.id)
-                        await self.cache_service.append_message(session_id, saved_msg)
-            except Exception as exc:
-                logger.error(
-                    f"Failed to persist assistant message: {exc}", exc_info=True
+                async for token in provider.generate_stream(
+                    llm_messages, tools=active_tools
+                ):
+                    if isinstance(token, dict):
+                        # Provider emitted a tool call chunk
+                        tool_name = token.get("name") or token.get("tool")
+                        if not tool_name:
+                            continue
+                        call_id = token.get("id") or f"call_{uuid.uuid4().hex[:12]}"
+                        tc_obj = {
+                            "id": call_id,
+                            "tool": tool_name,
+                            "arguments": token.get("arguments", {}),
+                            "status": "pending",
+                        }
+                        detected_tool_calls.append(tc_obj)
+                        yield {
+                            "event": "tool_call",
+                            "data": json.dumps(tc_obj),
+                        }
+                    elif isinstance(token, str):
+                        full_response_chunks.append(token)
+                        yield {
+                            "event": "chunk",
+                            "data": json.dumps({"content": token}),
+                        }
+            except (LLMAuthenticationError, LLMConnectionError) as exc:
+                stream_failed = True
+                logger.warning("Provider error during LLM stream generation: %s", exc)
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"error": str(exc)}),
+                }
+                return
+            except Exception:
+                stream_failed = True
+                logger.error("Error during LLM stream generation", exc_info=True)
+                yield {
+                    "event": "error",
+                    "data": json.dumps(
+                        {"error": "The assistant is temporarily unavailable."}
+                    ),
+                }
+                return
+
+            # Check for fallback tool calls in text
+            full_response_text = "".join(full_response_chunks)
+            if not detected_tool_calls and full_response_text:
+                cleaned_text, fallback_calls = _extract_tool_calls_from_text(
+                    full_response_text
                 )
+                if fallback_calls:
+                    detected_tool_calls.extend(fallback_calls)
+                    full_response_text = cleaned_text
+                    for tc in fallback_calls:
+                        yield {
+                            "event": "tool_call",
+                            "data": json.dumps(tc),
+                        }
 
-        # Signal completion with status
-        done_payload: dict[str, Any] = {
-            "message_id": assistant_message_id,
-            "status": "awaiting_approval" if detected_tool_calls else "completed",
-        }
-        if detected_tool_calls:
-            done_payload["tool_calls"] = detected_tool_calls
+            # ==============================================================================
+            # 3. POST-INFERENCE PHASE: Checkout fresh DB session to persist assistant response (~5ms)
+            # ==============================================================================
+            assistant_message_id = None
+            if full_response_text or detected_tool_calls:
+                assistant_message_id = await self._persist_assistant(
+                    session_id, user_id, full_response_text, detected_tool_calls
+                )
+            persisted = True
 
-        yield {
-            "event": "done",
-            "data": json.dumps(done_payload),
-        }
+            # Signal completion with status
+            done_payload: dict[str, Any] = {
+                "message_id": assistant_message_id,
+                "status": "awaiting_approval" if detected_tool_calls else "completed",
+            }
+            if detected_tool_calls:
+                done_payload["tool_calls"] = detected_tool_calls
+
+            yield {
+                "event": "done",
+                "data": json.dumps(done_payload),
+            }
+        finally:
+            if (
+                not persisted
+                and not stream_failed
+                and (full_response_chunks or detected_tool_calls)
+            ):
+                await asyncio.shield(
+                    self._persist_assistant(
+                        session_id,
+                        user_id,
+                        "".join(full_response_chunks),
+                        detected_tool_calls,
+                    )
+                )
 
     async def stream_tool_approval(
         self,
