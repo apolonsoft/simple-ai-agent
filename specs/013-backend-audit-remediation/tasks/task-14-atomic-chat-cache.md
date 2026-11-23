@@ -1,6 +1,6 @@
 ### Task 14: Make the Chat Cache an Atomic Bounded List
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [11 — Cache correctness](../lessons/lesson-11-cache-correctness.md)
 
