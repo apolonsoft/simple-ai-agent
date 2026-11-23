@@ -264,7 +264,7 @@
             placeholder="Re-enter your new password"
             class="w-full h-9 px-3 rounded-xl bg-white border border-[#d1d1cd] text-xs text-[#27251e] placeholder:text-[#92918b] focus:outline-none focus:border-[#27251e] transition-colors"
           />
-          @if (passwordForm.touched && passwordForm.hasError('passwordMismatch')) {
+          @if ((passwordForm.get('confirm_password')?.touched || passwordForm.get('confirm_password')?.dirty) && passwordForm.hasError('passwordMismatch')) {
             <p class="text-[11px] text-red-600 mt-1">Passwords do not match.</p>
           }
         </div>

@@ -17,6 +17,8 @@ describe('ChatLayoutComponent', () => {
     sessions: ReturnType<typeof signal<ChatSession[]>>;
     activeSessionId: ReturnType<typeof signal<string | null>>;
     isLoadingSessions: ReturnType<typeof signal<boolean>>;
+    isCreatingSession: ReturnType<typeof signal<boolean>>;
+    sidebarError: ReturnType<typeof signal<string | null>>;
     loadSessions: ReturnType<typeof vi.fn>;
     createSession: ReturnType<typeof vi.fn>;
     deleteSession: ReturnType<typeof vi.fn>;
@@ -40,6 +42,8 @@ describe('ChatLayoutComponent', () => {
       sessions: signal<ChatSession[]>([]),
       activeSessionId: signal<string | null>(null),
       isLoadingSessions: signal<boolean>(false),
+      isCreatingSession: signal<boolean>(false),
+      sidebarError: signal<string | null>(null),
       loadSessions: vi.fn().mockReturnValue(of([])),
       createSession: vi.fn().mockReturnValue(of({})),
       deleteSession: vi.fn().mockReturnValue(of(undefined)),
