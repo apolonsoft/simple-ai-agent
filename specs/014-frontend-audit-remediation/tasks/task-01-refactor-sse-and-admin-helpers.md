@@ -1,6 +1,6 @@
 ### Task 01: Extract Pure SSE Parser & Admin Permission Utilities
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 Preparatory refactoring step (per `.agent/rules/single-file-tasks.md` §2) with **zero functional change**.

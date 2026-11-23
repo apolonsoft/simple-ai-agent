@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
 import { ChatSession, ChatMessage, CreateSessionRequest, ToolCall } from '../models/chat.model';
+import { parseSseBlock, splitSseBuffer } from '../utils/sse-parser';
 
 @Injectable({
   providedIn: 'root',
@@ -177,8 +178,8 @@ export class ChatService {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const blocks = buffer.split(/(?:\r\n\r\n|\r\r|\n\n)/);
-        buffer = blocks.pop() || '';
+        const { blocks, remainder } = splitSseBuffer(buffer);
+        buffer = remainder;
 
         for (const block of blocks) {
           if (block.trim()) {
@@ -188,8 +189,8 @@ export class ChatService {
       }
 
       if (buffer.trim()) {
-        const remainingBlocks = buffer.split(/(?:\r\n\r\n|\r\r|\n\n)/);
-        for (const block of remainingBlocks) {
+        const { blocks, remainder } = splitSseBuffer(buffer);
+        for (const block of [...blocks, remainder]) {
           if (block.trim()) {
             this.processSseBlock(block);
           }
@@ -267,8 +268,8 @@ export class ChatService {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const blocks = buffer.split(/(?:\r\n\r\n|\r\r|\n\n)/);
-        buffer = blocks.pop() || '';
+        const { blocks, remainder } = splitSseBuffer(buffer);
+        buffer = remainder;
 
         for (const block of blocks) {
           if (block.trim()) {
@@ -278,8 +279,8 @@ export class ChatService {
       }
 
       if (buffer.trim()) {
-        const remainingBlocks = buffer.split(/(?:\r\n\r\n|\r\r|\n\n)/);
-        for (const block of remainingBlocks) {
+        const { blocks, remainder } = splitSseBuffer(buffer);
+        for (const block of [...blocks, remainder]) {
           if (block.trim()) {
             this.processSseBlock(block);
           }
@@ -304,21 +305,9 @@ export class ChatService {
   }
 
   private processSseBlock(block: string): void {
-    let eventType = 'chunk';
-    let dataStr = '';
-
-    const lines = block.split(/\r?\n/);
-    for (const rawLine of lines) {
-      const line = rawLine.trimEnd();
-      if (line.startsWith('event:')) {
-        eventType = line.slice(6).trim();
-      } else if (line.startsWith('data:')) {
-        const rawData = line.slice(5);
-        dataStr = rawData.startsWith(' ') ? rawData.slice(1) : rawData;
-      }
-    }
-
-    if (!dataStr) return;
+    const parsedBlock = parseSseBlock(block);
+    if (!parsedBlock) return;
+    const { eventType, dataStr } = parsedBlock;
 
     try {
       const parsed = JSON.parse(dataStr);

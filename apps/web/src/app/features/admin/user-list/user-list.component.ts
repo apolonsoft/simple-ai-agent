@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { AdminService } from '../../../core/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { AdminUser, UserRole } from '../../../core/models/admin.model';
+import { canBanUser, canChangeUserRole } from '../../../core/utils/admin-permissions';
 
 @Component({
   selector: 'app-user-list',
@@ -89,26 +90,11 @@ export class UserListComponent implements OnInit {
   }
 
   canBan(user: AdminUser): boolean {
-    if (user.id === this.currentUserId()) {
-      return false;
-    }
-    if (user.role === 'super_admin') {
-      return false;
-    }
-    if (user.role === 'admin' && !this.isSuperAdmin()) {
-      return false;
-    }
-    return true;
+    return canBanUser(this.currentUser(), user);
   }
 
   canChangeRole(user: AdminUser): boolean {
-    if (!this.isSuperAdmin()) {
-      return false;
-    }
-    if (user.id === this.currentUserId()) {
-      return false;
-    }
-    return true;
+    return canChangeUserRole(this.currentUser(), user);
   }
 
   openBanModal(user: AdminUser): void {
