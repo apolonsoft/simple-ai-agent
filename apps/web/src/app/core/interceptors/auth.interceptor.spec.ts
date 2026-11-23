@@ -3,6 +3,7 @@ import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Router } from '@angular/router';
 import { authInterceptor } from './auth.interceptor';
+import { AuthService } from '../services/auth.service';
 
 describe('authInterceptor', () => {
   let httpClient: HttpClient;
@@ -49,7 +50,14 @@ describe('authInterceptor', () => {
     req.flush({});
   });
 
-  it('should redirect to /login and clear token on 401 Unauthorized', () => {
+  it('should delegate 401 Unauthorized to AuthService.logout() clearing currentUser, token, and navigating to /login', () => {
+    const authService = TestBed.inject(AuthService);
+    authService.currentUser.set({
+      id: 'user-1',
+      email: 'user@example.com',
+      role: 'user',
+      is_active: true,
+    });
     localStorage.setItem('token', 'expired-token');
 
     httpClient.get('/api/v1/chats').subscribe({
@@ -61,6 +69,7 @@ describe('authInterceptor', () => {
     req.flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
 
     expect(localStorage.getItem('token')).toBeNull();
+    expect(authService.currentUser()).toBeNull();
     expect(mockRouter.navigate).toHaveBeenCalledWith(['/login']);
   });
 });

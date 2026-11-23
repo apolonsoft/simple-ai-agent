@@ -37,4 +37,14 @@ describe('authGuard', () => {
     expect(result instanceof UrlTree).toBe(true);
     expect((result as UrlTree).toString()).toBe('/login');
   });
+
+  it('should reject expired JWTs when AuthService.getToken() returns null', () => {
+    mockAuthService.getToken.mockReturnValue(null);
+
+    const result = TestBed.runInInjectionContext(() => authGuard({} as any, {} as any));
+
+    expect(mockAuthService.getToken).toHaveBeenCalled();
+    expect(result instanceof UrlTree).toBe(true);
+    expect((result as UrlTree).toString()).toBe('/login');
+  });
 });

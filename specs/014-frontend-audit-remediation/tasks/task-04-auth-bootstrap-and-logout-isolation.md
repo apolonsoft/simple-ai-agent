@@ -1,6 +1,6 @@
 ### Task 04: Harden Auth Bootstrap, Token Expiry & Multi-Store Logout Reset
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 **HIGH (Audit Findings #5 & #7).**

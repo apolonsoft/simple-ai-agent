@@ -21,6 +21,23 @@ export class ChatService {
   private pendingTokenBuffer = '';
   private flushRafId: number | null = null;
 
+  constructor() {
+    this.authService.registerLogoutCleanup(() => this.resetState());
+  }
+
+  resetState(): void {
+    this.abortStream();
+    this.loadMessagesSub?.unsubscribe();
+    this.loadMessagesSub = undefined;
+    this.sessions.set([]);
+    this.messages.set([]);
+    this.activeSessionId.set(null);
+    this.isLoadingSessions.set(false);
+    this.isLoadingMessages.set(false);
+    this.isExecutingTool.set(false);
+    this.streamError.set(null);
+  }
+
   // Reactive state using Angular Signals
   readonly sessions = signal<ChatSession[]>([]);
   readonly activeSessionId = signal<string | null>(null);

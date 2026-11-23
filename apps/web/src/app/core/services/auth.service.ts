@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, switchMap, of, catchError } from 'rxjs';
+import { Observable, tap, switchMap, of, catchError, finalize, shareReplay } from 'rxjs';
 import { User, TokenResponse, RegisterRequest, ResetPasswordRequest, ChangePasswordRequest, VerifyResetTokenResponse, MessageResponse } from '../models/user.model';
 
 @Injectable({
@@ -16,15 +16,48 @@ export class AuthService {
   readonly isLoading = signal<boolean>(false);
   readonly isAuthenticated = computed(() => !!this.currentUser());
 
+  private meRequest$: Observable<User> | null = null;
+  private readonly logoutCleanups = new Set<() => void>();
+
   constructor() {
     this.checkInitialAuth();
   }
 
+  registerLogoutCleanup(fn: () => void): void {
+    this.logoutCleanups.add(fn);
+  }
+
   getToken(): string | null {
-    if (typeof localStorage !== 'undefined') {
-      return localStorage.getItem('token');
+    if (typeof localStorage === 'undefined') {
+      return null;
     }
-    return null;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return null;
+    }
+    if (this.isTokenExpired(token)) {
+      this.removeToken();
+      return null;
+    }
+    return token;
+  }
+
+  private isTokenExpired(token: string): boolean {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return false;
+    }
+    try {
+      const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+      const payload = JSON.parse(atob(padded)) as { exp?: unknown };
+      if (typeof payload.exp === 'number') {
+        return payload.exp * 1000 <= Date.now();
+      }
+      return false;
+    } catch {
+      return true;
+    }
   }
 
   private setToken(token: string): void {
@@ -39,11 +72,29 @@ export class AuthService {
     }
   }
 
+  ensureCurrentUser(): Observable<User> {
+    const existing = this.currentUser();
+    if (existing) {
+      return of(existing);
+    }
+    if (!this.meRequest$) {
+      this.meRequest$ = this.getMe().pipe(
+        tap((user) => {
+          this.currentUser.set(user);
+        }),
+        finalize(() => {
+          this.meRequest$ = null;
+        }),
+        shareReplay({ bufferSize: 1, refCount: false })
+      );
+    }
+    return this.meRequest$;
+  }
+
   checkInitialAuth(): void {
     const token = this.getToken();
     if (token) {
-      this.getMe().subscribe({
-        next: (user) => this.currentUser.set(user),
+      this.ensureCurrentUser().subscribe({
         error: () => this.logout(),
       });
     }
@@ -107,8 +158,12 @@ export class AuthService {
   }
 
   logout(): void {
+    this.meRequest$ = null;
     this.removeToken();
     this.currentUser.set(null);
+    for (const cleanup of this.logoutCleanups) {
+      cleanup();
+    }
     this.router.navigate(['/login']);
   }
 }
