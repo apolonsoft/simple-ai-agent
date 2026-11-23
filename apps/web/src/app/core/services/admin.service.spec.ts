@@ -224,4 +224,45 @@ describe('AdminService', () => {
     expect(req.request.body).toEqual({ role: 'admin' });
     req.flush(actionResponse);
   });
+
+  it('should set mutatingUserId without flipping isLoadingList or isLoadingDetail on mutations', () => {
+    service.users.set(mockUsers);
+
+    service.updateRole('user-1', 'admin').subscribe();
+    expect(service.mutatingUserId()).toBe('user-1');
+    expect(service.isLoadingList()).toBe(false);
+    expect(service.isLoadingDetail()).toBe(false);
+
+    const roleReq = httpTestingController.expectOne('/api/v1/admin/users/user-1/role');
+    roleReq.flush({ success: true, message: 'ok', user: { ...mockUsers[0], role: 'admin' } });
+    expect(service.mutatingUserId()).toBeNull();
+
+    service.banUser('user-1', 'spam').subscribe();
+    expect(service.mutatingUserId()).toBe('user-1');
+    expect(service.isLoadingList()).toBe(false);
+    expect(service.isLoadingDetail()).toBe(false);
+
+    const banReq = httpTestingController.expectOne('/api/v1/admin/users/user-1/ban');
+    banReq.flush({ success: true, message: 'ok', user: { ...mockUsers[0], is_banned: true } });
+    expect(service.mutatingUserId()).toBeNull();
+
+    service.unbanUser('user-1').subscribe();
+    expect(service.mutatingUserId()).toBe('user-1');
+    expect(service.isLoadingList()).toBe(false);
+
+    const unbanReq = httpTestingController.expectOne('/api/v1/admin/users/user-1/unban');
+    unbanReq.flush({ success: true, message: 'ok', user: { ...mockUsers[0], is_banned: false } });
+    expect(service.mutatingUserId()).toBeNull();
+  });
+
+  it('should clear isLoadingList via finalize when a loadUsers subscription is cancelled', () => {
+    const sub = service.loadUsers().subscribe();
+    expect(service.isLoadingList()).toBe(true);
+
+    const req = httpTestingController.expectOne((r) => r.url === '/api/v1/admin/users');
+    sub.unsubscribe();
+
+    expect(req.cancelled).toBe(true);
+    expect(service.isLoadingList()).toBe(false);
+  });
 });

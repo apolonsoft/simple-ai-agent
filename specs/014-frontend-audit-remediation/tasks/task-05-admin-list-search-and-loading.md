@@ -1,6 +1,6 @@
 ### Task 05: Add Debounced `switchMap` Search & Granular Loading in Admin List
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 **HIGH + MEDIUM (Audit Findings #3 & #11).**
