@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canBanUser, canChangeUserRole } from './admin-permissions';
+import { canBanUser, canModerateUser, canChangeUserRole } from './admin-permissions';
 
 describe('admin-permissions', () => {
   const regularUser = { id: 'u1', role: 'user' };
@@ -8,7 +8,13 @@ describe('admin-permissions', () => {
   const superAdmin = { id: 'sa1', role: 'super_admin' };
   const otherSuperAdmin = { id: 'sa2', role: 'super_admin' };
 
-  describe('canBanUser', () => {
+  describe('canModerateUser / canBanUser', () => {
+    it('exports canModerateUser as the shared moderation check', () => {
+      expect(canModerateUser(admin, regularUser)).toBe(true);
+      expect(canModerateUser(admin, otherAdmin)).toBe(false);
+      expect(canModerateUser(admin, superAdmin)).toBe(false);
+      expect(canModerateUser(superAdmin, admin)).toBe(true);
+    });
     it('returns false when actor or target is missing', () => {
       expect(canBanUser(null, regularUser)).toBe(false);
       expect(canBanUser(admin, null)).toBe(false);

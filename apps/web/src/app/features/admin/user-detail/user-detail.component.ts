@@ -1,22 +1,29 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, input, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, ActivatedRoute } from '@angular/router';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { EMPTY, catchError, distinctUntilChanged, filter, map, merge, of, switchMap, tap } from 'rxjs';
 import { AdminService } from '../../../core/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { UserRole } from '../../../core/models/admin.model';
-import { canBanUser, canChangeUserRole } from '../../../core/utils/admin-permissions';
+import { canModerateUser, canChangeUserRole } from '../../../core/utils/admin-permissions';
+import { BanUserModalComponent } from '../ban-user-modal/ban-user-modal.component';
 
 @Component({
   selector: 'app-user-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, BanUserModalComponent],
   templateUrl: './user-detail.component.html',
 })
 export class UserDetailComponent implements OnInit {
   readonly adminService = inject(AdminService);
   private readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
+
+  readonly id = input<string | null>(null);
+  private readonly id$ = toObservable(this.id);
 
   readonly userId = signal<string | null>(null);
   readonly actionMessage = signal<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -32,24 +39,31 @@ export class UserDetailComponent implements OnInit {
   readonly isSuperAdmin = computed(() => this.currentUser()?.role === 'super_admin');
   readonly currentUserId = computed(() => this.currentUser()?.id);
 
-  readonly canBan = computed(() => canBanUser(this.currentUser(), this.user()));
+  readonly canBan = computed(() => canModerateUser(this.currentUser(), this.user()));
 
   readonly canChangeRole = computed(() => canChangeUserRole(this.currentUser(), this.user()));
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.userId.set(id);
-      this.loadUser(id);
-    }
-  }
+    const routeParam$ = this.route.paramMap
+      ? this.route.paramMap.pipe(map((params) => params.get('id')))
+      : of(this.route.snapshot?.paramMap?.get('id') ?? null);
 
-  loadUser(id: string): void {
-    this.adminService.getUserDetail(id).subscribe({
-      error: (err) => {
-        this.showToast('error', err?.error?.detail || 'Failed to load user details');
-      },
-    });
+    merge(this.id$, routeParam$)
+      .pipe(
+        filter((id): id is string => Boolean(id)),
+        distinctUntilChanged(),
+        tap((id) => this.userId.set(id)),
+        switchMap((id) =>
+          this.adminService.getUserDetail(id).pipe(
+            catchError((err) => {
+              this.showToast('error', err?.error?.detail || 'Failed to load user details');
+              return EMPTY;
+            })
+          )
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe();
   }
 
   openBanModal(): void {
@@ -63,12 +77,12 @@ export class UserDetailComponent implements OnInit {
     this.isSubmitting.set(false);
   }
 
-  confirmBan(): void {
+  confirmBan(reason: string = this.banReason()): void {
     const u = this.user();
     if (!u) return;
 
     this.isSubmitting.set(true);
-    this.adminService.banUser(u.id, this.banReason().trim()).subscribe({
+    this.adminService.banUser(u.id, reason.trim()).subscribe({
       next: () => {
         this.showToast('success', `User ${u.email} has been banned.`);
         this.closeBanModal();

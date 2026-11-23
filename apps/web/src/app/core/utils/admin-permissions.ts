@@ -4,9 +4,9 @@ export interface PermissionActor {
 }
 
 /**
- * Returns whether `actor` is allowed to ban `target` based on role hierarchy.
+ * Returns whether `actor` is allowed to moderate (ban or unban) `target` based on role hierarchy.
  */
-export function canBanUser(
+export function canModerateUser(
   actor: PermissionActor | null | undefined,
   target: PermissionActor | null | undefined
 ): boolean {
@@ -16,6 +16,11 @@ export function canBanUser(
   if (target.role === 'admin' && actor.role !== 'super_admin') return false;
   return true;
 }
+
+/**
+ * Alias for `canModerateUser` preserved for backwards compatibility.
+ */
+export const canBanUser = canModerateUser;
 
 /**
  * Returns whether `actor` is allowed to change `target`'s role.

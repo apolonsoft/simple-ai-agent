@@ -1,6 +1,6 @@
 ### Task 06: Reactive User Detail Routing, Unban RBAC Guard & Shared Ban Modal
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 **MEDIUM (Audit Findings #10, #11, #18).**

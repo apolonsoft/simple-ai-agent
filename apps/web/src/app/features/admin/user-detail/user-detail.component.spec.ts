@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideRouter, ActivatedRoute } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError, finalize } from 'rxjs';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UserDetailComponent } from './user-detail.component';
 import { AdminService } from '../../../core/services/admin.service';
@@ -16,6 +16,8 @@ describe('UserDetailComponent', () => {
   let mockAdminService: {
     selectedUser: ReturnType<typeof signal<AdminUserDetail | null>>;
     isLoading: ReturnType<typeof signal<boolean>>;
+    isLoadingDetail: ReturnType<typeof signal<boolean>>;
+    mutatingUserId: ReturnType<typeof signal<string | null>>;
     error: ReturnType<typeof signal<string | null>>;
     getUserDetail: ReturnType<typeof vi.fn>;
     banUser: ReturnType<typeof vi.fn>;
@@ -47,6 +49,8 @@ describe('UserDetailComponent', () => {
     mockAdminService = {
       selectedUser: signal<AdminUserDetail | null>(sampleUserDetail),
       isLoading: signal<boolean>(false),
+      isLoadingDetail: signal<boolean>(false),
+      mutatingUserId: signal<string | null>(null),
       error: signal<string | null>(null),
       getUserDetail: vi.fn().mockReturnValue(of(sampleUserDetail)),
       banUser: vi.fn(),
@@ -192,5 +196,54 @@ describe('UserDetailComponent', () => {
     expect(component.actionMessage()?.type).toBe('error');
     expect(component.actionMessage()?.text).toBe('Cannot ban user');
     expect(component.isSubmitting()).toBe(false);
+  });
+
+  it('should cancel pending fetch and reload when route id input changes', () => {
+    const first$ = new Subject<AdminUserDetail>();
+    const second$ = new Subject<AdminUserDetail>();
+    let firstUnsubscribed = false;
+
+    mockAdminService.getUserDetail.mockReset();
+    mockAdminService.getUserDetail
+      .mockReturnValueOnce(first$.pipe(finalize(() => (firstUnsubscribed = true))))
+      .mockReturnValueOnce(second$);
+
+    fixture.componentRef.setInput('id', 'user-1');
+    fixture.detectChanges();
+    expect(firstUnsubscribed).toBe(false);
+
+    fixture.componentRef.setInput('id', 'user-2');
+    fixture.detectChanges();
+    expect(firstUnsubscribed).toBe(true);
+    expect(mockAdminService.getUserDetail).toHaveBeenCalledWith('user-2');
+  });
+
+  it('should hide Restore Account Access button for regular admin viewing a banned admin or super_admin', () => {
+    mockAuthService.currentUser.set({
+      id: 'regular-admin-1',
+      email: 'admin@example.com',
+      role: 'admin',
+      is_active: true,
+    });
+    mockAdminService.selectedUser.set({
+      ...sampleUserDetail,
+      id: 'banned-admin-2',
+      role: 'admin',
+      is_banned: true,
+      ban_reason: 'Test',
+    });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.btn-unban-detail')).toBeFalsy();
+
+    // Super admin CAN restore access for a banned admin
+    mockAuthService.currentUser.set({
+      id: 'super-admin-1',
+      email: 'super@example.com',
+      role: 'super_admin',
+      is_active: true,
+    });
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.btn-unban-detail')).toBeTruthy();
   });
 });
