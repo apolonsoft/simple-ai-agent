@@ -17,7 +17,7 @@ Execute one task at a time (see `.agent/rules/task-by-task.md`). Each task links
 - [x] Task 13: Harden the Redis connection pool (`tasks/task-13-redis-pool-hardening.md`)
 - [x] Task 14: Make the chat cache an atomic bounded list (`tasks/task-14-atomic-chat-cache.md`)
 - [x] Task 15: Accept JWTs only from the Authorization header (`tasks/task-15-header-only-jwt.md`)
-- [ ] Task 16: Bound chat queries with pagination and windowed context (`tasks/task-16-bounded-chat-queries.md`)
+- [x] Task 16: Bound chat queries with pagination and windowed context (`tasks/task-16-bounded-chat-queries.md`)
 - [ ] Task 17: Bound avatar uploads (`tasks/task-17-bounded-avatar-upload.md`)
 - [ ] Task 18: Remove account-enumeration timing signals (`tasks/task-18-enumeration-timing.md`)
 - [ ] Task 19: Cache MCP tool definitions (`tasks/task-19-cache-mcp-tools.md`)

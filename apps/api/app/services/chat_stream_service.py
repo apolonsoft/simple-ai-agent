@@ -7,6 +7,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
+from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.models.chat import ChatMessageModel
 from app.providers.factory import get_llm_provider
@@ -98,7 +99,9 @@ class ChatStreamService:
             if cached_history is not None:
                 prior_history = cached_history
             else:
-                db_messages = await chat_service.get_messages(session_id, user_id) or []
+                db_messages = await chat_service.get_recent_messages(
+                    session_id, settings.CHAT_MEMORY_WINDOW_SIZE
+                )
                 prior_history = db_messages
                 await self.cache_service.set_messages(session_id, db_messages)
 
@@ -377,7 +380,9 @@ class ChatStreamService:
                     result=final_val,
                 )
 
-            prior_history = await chat_service.get_messages(session_id, user_id) or []
+            prior_history = await chat_service.get_recent_messages(
+                session_id, settings.CHAT_MEMORY_WINDOW_SIZE
+            )
             llm_messages = self.memory_manager.build_context(
                 history=prior_history,
                 new_user_message=(

@@ -1,8 +1,9 @@
 # app/routes/chat_routes.py
 import os
 import uuid
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
@@ -64,11 +65,13 @@ async def create_chat_session(
     ],
 )
 async def list_chat_sessions(
+    limit: int = Query(default=100, ge=1, le=200),
+    before: datetime | None = Query(default=None),
     current_user: UserModel = Depends(get_current_user),
     controller: ChatController = Depends(get_chat_controller),
 ):
-    """Returns all chat threads belonging to the authenticated user."""
-    return await controller.list_sessions(current_user.id)
+    """Returns chat threads belonging to the authenticated user (paginated)."""
+    return await controller.list_sessions(current_user.id, limit=limit, before=before)
 
 
 @router.get(
@@ -103,11 +106,15 @@ async def delete_chat_session(
 )
 async def get_chat_messages(
     session_id: uuid.UUID,
+    limit: int = Query(default=100, ge=1, le=200),
+    before: datetime | None = Query(default=None),
     current_user: UserModel = Depends(get_current_user),
     controller: ChatController = Depends(get_chat_controller),
 ):
-    """Returns message history for a specific session."""
-    return await controller.get_messages(session_id, current_user.id)
+    """Returns message history for a specific session (paginated)."""
+    return await controller.get_messages(
+        session_id, current_user.id, limit=limit, before=before
+    )
 
 
 def get_chat_stream_service(

@@ -1,5 +1,6 @@
 # app/controllers/chat_controller.py
 import uuid
+from datetime import datetime
 
 from fastapi import HTTPException, status
 
@@ -30,8 +31,12 @@ class ChatController:
     async def list_sessions(
         self,
         user_id: uuid.UUID,
+        limit: int = 100,
+        before: datetime | None = None,
     ) -> list[ChatSessionResponse]:
-        sessions = await self.service.list_user_sessions(user_id)
+        sessions = await self.service.list_user_sessions(
+            user_id, limit=limit, before=before
+        )
         return [ChatSessionResponse.model_validate(s) for s in sessions]
 
     async def get_session(
@@ -64,8 +69,12 @@ class ChatController:
         self,
         session_id: uuid.UUID,
         user_id: uuid.UUID,
+        limit: int = 100,
+        before: datetime | None = None,
     ) -> list[ChatMessageResponse]:
-        messages = await self.service.get_messages(session_id, user_id)
+        messages = await self.service.get_messages(
+            session_id, user_id, limit=limit, before=before
+        )
         if messages is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
