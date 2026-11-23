@@ -1,7 +1,9 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EMPTY, Subject, catchError, debounceTime, distinctUntilChanged, merge, switchMap } from 'rxjs';
 import { AdminService } from '../../../core/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { AdminUser, UserRole } from '../../../core/models/admin.model';
@@ -16,6 +18,10 @@ import { canBanUser, canChangeUserRole } from '../../../core/utils/admin-permiss
 export class UserListComponent implements OnInit {
   readonly adminService = inject(AdminService);
   private readonly authService = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  private readonly searchInput$ = new Subject<string>();
+  private readonly reload$ = new Subject<void>();
 
   // Filter & pagination state
   readonly searchQuery = signal<string>('');
@@ -39,29 +45,42 @@ export class UserListComponent implements OnInit {
   readonly currentUserId = computed(() => this.currentUser()?.id);
 
   ngOnInit(): void {
+    merge(
+      this.searchInput$.pipe(debounceTime(250), distinctUntilChanged()),
+      this.reload$
+    )
+      .pipe(
+        switchMap(() =>
+          this.adminService
+            .loadUsers({
+              page: this.currentPage(),
+              limit: this.pageSize(),
+              search: this.searchQuery(),
+              role: this.roleFilter() === 'all' ? undefined : this.roleFilter(),
+              status: this.statusFilter() === 'all' ? undefined : this.statusFilter(),
+            })
+            .pipe(
+              catchError((err) => {
+                this.showToast('error', err?.error?.detail || 'Failed to load users');
+                return EMPTY;
+              })
+            )
+        ),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe();
+
     this.loadUsers();
   }
 
   loadUsers(): void {
-    this.adminService
-      .loadUsers({
-        page: this.currentPage(),
-        limit: this.pageSize(),
-        search: this.searchQuery(),
-        role: this.roleFilter() === 'all' ? undefined : this.roleFilter(),
-        status: this.statusFilter() === 'all' ? undefined : this.statusFilter(),
-      })
-      .subscribe({
-        error: (err) => {
-          this.showToast('error', err?.error?.detail || 'Failed to load users');
-        },
-      });
+    this.reload$.next();
   }
 
   onSearch(query: string): void {
     this.searchQuery.set(query);
     this.currentPage.set(1);
-    this.loadUsers();
+    this.searchInput$.next(query);
   }
 
   clearSearch(): void {

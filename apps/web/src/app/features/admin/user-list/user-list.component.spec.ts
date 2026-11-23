@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError, finalize } from 'rxjs';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UserListComponent } from './user-list.component';
 import { AdminService } from '../../../core/services/admin.service';
@@ -20,6 +20,9 @@ describe('UserListComponent', () => {
     limit: ReturnType<typeof signal<number>>;
     totalPages: ReturnType<typeof signal<number>>;
     isLoading: ReturnType<typeof signal<boolean>>;
+    isLoadingList: ReturnType<typeof signal<boolean>>;
+    isLoadingDetail: ReturnType<typeof signal<boolean>>;
+    mutatingUserId: ReturnType<typeof signal<string | null>>;
     error: ReturnType<typeof signal<string | null>>;
     loadUsers: ReturnType<typeof vi.fn>;
     banUser: ReturnType<typeof vi.fn>;
@@ -75,6 +78,9 @@ describe('UserListComponent', () => {
       limit: signal<number>(20),
       totalPages: signal<number>(1),
       isLoading: signal<boolean>(false),
+      isLoadingList: signal<boolean>(false),
+      isLoadingDetail: signal<boolean>(false),
+      mutatingUserId: signal<string | null>(null),
       error: signal<string | null>(null),
       loadUsers: vi.fn().mockReturnValue(
         of({
@@ -118,11 +124,43 @@ describe('UserListComponent', () => {
     expect(component.adminService.users().length).toBe(3);
   });
 
-  it('should update search query and reload on onSearch', () => {
-    component.onSearch('bob');
-    expect(component.searchQuery()).toBe('bob');
+  it('should debounce rapid onSearch calls and dispatch only the latest query after 250ms', () => {
+    vi.useFakeTimers();
+    mockAdminService.loadUsers.mockClear();
+
+    component.onSearch('a');
+    component.onSearch('al');
+    component.onSearch('ali');
+
+    expect(component.searchQuery()).toBe('ali');
     expect(component.currentPage()).toBe(1);
-    expect(mockAdminService.loadUsers).toHaveBeenCalled();
+    expect(mockAdminService.loadUsers).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(250);
+
+    expect(mockAdminService.loadUsers).toHaveBeenCalledTimes(1);
+    expect(mockAdminService.loadUsers).toHaveBeenCalledWith(
+      expect.objectContaining({ search: 'ali', page: 1 })
+    );
+    vi.useRealTimers();
+  });
+
+  it('should cancel prior in-flight loadUsers request via switchMap when filter changes', () => {
+    const first$ = new Subject<AdminUserListResponse>();
+    const second$ = new Subject<AdminUserListResponse>();
+    let firstUnsubscribed = false;
+
+    mockAdminService.loadUsers.mockReset();
+    mockAdminService.loadUsers
+      .mockReturnValueOnce(first$.pipe(finalize(() => (firstUnsubscribed = true))))
+      .mockReturnValueOnce(second$);
+
+    component.onRoleFilterChange('admin');
+    expect(firstUnsubscribed).toBe(false);
+
+    component.onRoleFilterChange('user');
+    expect(firstUnsubscribed).toBe(true);
+    expect(mockAdminService.loadUsers).toHaveBeenCalledTimes(2);
   });
 
   it('should reset search query on clearSearch', () => {
