@@ -32,6 +32,9 @@ class Settings(BaseSettings):
 
     # Redis - Cache & Rate Limiting
     REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_MAX_CONNECTIONS: int = 50
+    REDIS_SOCKET_TIMEOUT: float = 0.5
+    REDIS_POOL_TIMEOUT: float = 0.2
     RATE_LIMIT_PER_MINUTE: int = 30
 
     # Authentication & Security
