@@ -135,9 +135,7 @@ async def test_get_current_user_executes_single_statement_no_cascades(
         test_engine.sync_engine, "before_cursor_execute", before_cursor_execute
     )
     try:
-        current_user = await get_current_user(
-            header_token=token, query_token=None, db=db_session
-        )
+        current_user = await get_current_user(token=token, db=db_session)
         assert current_user.id == user.id
         assert len(executed_queries) == 1
     finally:

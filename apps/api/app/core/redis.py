@@ -1,6 +1,5 @@
 # app/core/redis.py
 import logging
-from collections.abc import AsyncGenerator
 
 import redis.asyncio as aioredis
 
@@ -8,16 +7,20 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_redis_pool: aioredis.ConnectionPool | None = None
+_redis_pool: aioredis.BlockingConnectionPool | None = None
 
 
-def get_redis_pool() -> aioredis.ConnectionPool:
-    """Singleton connection pool for Redis."""
+def get_redis_pool() -> aioredis.BlockingConnectionPool:
+    """Singleton blocking connection pool for Redis with bounded timeouts."""
     global _redis_pool
     if _redis_pool is None:
-        _redis_pool = aioredis.ConnectionPool.from_url(
+        _redis_pool = aioredis.BlockingConnectionPool.from_url(
             settings.REDIS_URL,
-            max_connections=50,
+            max_connections=settings.REDIS_MAX_CONNECTIONS,
+            timeout=settings.REDIS_POOL_TIMEOUT,
+            socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
+            socket_connect_timeout=settings.REDIS_SOCKET_TIMEOUT,
+            health_check_interval=30,
             decode_responses=True,
         )
     return _redis_pool
@@ -39,12 +42,3 @@ async def close_redis_pool() -> None:
             logger.error(f"Error disconnecting Redis connection pool: {e}")
         finally:
             _redis_pool = None
-
-
-async def get_redis() -> AsyncGenerator[aioredis.Redis, None]:
-    """FastAPI dependency yielding a Redis client."""
-    client = await get_redis_client()
-    try:
-        yield client
-    finally:
-        await client.aclose()

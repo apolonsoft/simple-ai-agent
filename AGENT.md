@@ -36,11 +36,12 @@ flowchart TD
 2. **Multi-Tenant Row-Level Security**:
    - Every database query for sessions, messages, or tools **must strictly filter** by `(id == session_id, user_id == current_user.id)`. Never expose cross-tenant data.
 3. **Human-in-the-Loop (HITL) Tool Approval**:
-   - In the web application, tool calls requested by an LLM are saved with status `awaiting_approval`.
-   - Execution is halted until the authenticated user explicitly submits an approval request via `/api/v1/chats/{session_id}/tools/approve`.
+   - In the web application, tool calls requested by an LLM follow the lifecycle `pending → executing → executed | failed | rejected`.
+   - Execution is halted until the authenticated user explicitly submits an approval request via `/api/v1/chats/{session_id}/tool-calls/approval`.
    - Never execute external/system tools autonomously without checking approval requirements.
-4. **Fail-Open Resilience**:
-   - Redis is used for rate-limiting (ZSET sliding window) and turn caching. If Redis is unavailable or fails, operations must fail-open (log warning and fall back to PostgreSQL or allow the request) without breaking the user experience.
+4. **Fail-Open Resilience (Rate Limiting & Caching Only)**:
+   - Redis is used for rate-limiting (ZSET sliding window) and turn caching. If Redis is unavailable or fails, rate limiting and caching must fail-open (log warning and fall back to PostgreSQL or allow the request) without breaking the user experience.
+   - Auth session revocation is **DB-backed** (`users.tokens_valid_after`) and does **not** fail open.
 5. **Modern Reactive Frontend (Angular Signals & Standalone)**:
    - Frontend is built exclusively with Angular 22 standalone components and Signals (`signal()`, `computed()`, `effect()`).
    - Do **NOT** introduce legacy `NgModule` modules or unneeded RxJS subscription chains. SSE streaming consumes native `ReadableStreamDefaultReader`.
@@ -106,7 +107,7 @@ simple-ai-agent/
 | Path | Purpose | Key Conventions |
 | :--- | :--- | :--- |
 | `app/core/config.py` | Environment configuration via Pydantic Settings | Read from `.env`, defaults provided for local dev. |
-| `app/core/security.py` | Argon2id hashing & JWT token handling | Uses `pwdlib[argon2]` & `pyjwt`. Non-blocking. |
+| `app/core/security.py` | Argon2id hashing & JWT token handling | Uses `pwdlib[argon2]` & `pyjwt`. Async wrappers offload Argon2 to threads. |
 | `app/core/redis.py` | Asynchronous Redis connection singleton | `get_redis_client()` with fail-open wrappers. |
 | `app/core/rate_limiter.py` | ZSET sliding-window distributed rate limiter | Keyed by `(scope, user_id or ip)`. Returns `429` with `Retry-After`. |
 | `app/db/session.py` | Async SQLAlchemy engine & session factories | Pool sizing: `pool_size=20, max_overflow=10`. Use `get_db` for request scope, `get_session_factory` for decoupled streams. |
@@ -282,3 +283,5 @@ Before submitting changes, completing tasks, or committing code, every AI agent 
 - [ ] **Security & Multi-Tenancy**:
   - Verify every query on user data checks `user_id == current_user.id`.
   - Confirm no database transactions are held open across streaming/network I/O loops.
+  - No `lazy='selectin'` relationships (use `lazy='raise'` and explicit `selectinload` where needed).
+  - No tokens in query strings (accept JWTs only via `Authorization: Bearer`).

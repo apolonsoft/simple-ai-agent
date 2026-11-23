@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.session_revocation import clear_user_revocation, revoke_user_sessions
+from app.core.session_revocation import revoke_user_sessions
 from app.models.chat import ChatSessionModel
 from app.models.user import UserModel
 from app.schemas.admin import (
@@ -40,11 +40,11 @@ class AdminService:
 
         filters = []
         if search and search.strip():
-            term = f"%{search.strip()}%"
+            term = search.strip()
             filters.append(
                 or_(
-                    UserModel.email.ilike(term),
-                    UserModel.full_name.ilike(term),
+                    UserModel.email.icontains(term, autoescape=True),
+                    UserModel.full_name.icontains(term, autoescape=True),
                 )
             )
         if role and role.strip():
@@ -117,6 +117,21 @@ class AdminService:
             updated_at=user.updated_at,
         )
 
+    @staticmethod
+    def _assert_can_moderate(
+        actor: UserModel, target: UserModel, action: str = "ban"
+    ) -> None:
+        if actor.id == target.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Administrators cannot {action} their own account.",
+            )
+        if actor.role != "super_admin" and target.role in ("admin", "super_admin"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Insufficient permissions to {action} administrative accounts.",
+            )
+
     async def ban_user(
         self,
         admin_user: UserModel,
@@ -130,19 +145,7 @@ class AdminService:
                 detail=f"User with ID '{target_user_id}' was not found.",
             )
 
-        # Self-ban guardrail
-        if admin_user.id == target_user_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Administrators cannot ban their own account.",
-            )
-
-        # Administrative hierarchy guardrails
-        if admin_user.role != "super_admin" and target.role in ("admin", "super_admin"):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions to ban administrative accounts.",
-            )
+        self._assert_can_moderate(admin_user, target, action="ban")
 
         if admin_user.role == "super_admin" and target.role == "super_admin":
             raise HTTPException(
@@ -153,9 +156,7 @@ class AdminService:
         target.is_banned = True
         target.banned_at = datetime.now(timezone.utc)
         target.ban_reason = reason.strip() if reason else None
-
-        # Write session revocation timestamp to Redis
-        await revoke_user_sessions(target_user_id, 86400 * 30)
+        revoke_user_sessions(target)
 
         await self.db.commit()
         await self.db.refresh(target)
@@ -178,12 +179,11 @@ class AdminService:
                 detail=f"User with ID '{target_user_id}' was not found.",
             )
 
+        self._assert_can_moderate(admin_user, target, action="unban")
+
         target.is_banned = False
         target.banned_at = None
         target.ban_reason = None
-
-        # Clean up Redis revocation key
-        await clear_user_revocation(target_user_id)
 
         await self.db.commit()
         await self.db.refresh(target)

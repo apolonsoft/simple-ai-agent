@@ -1,6 +1,6 @@
 ### Task 21: Gemini Key Header and Admin Search Escaping
 
-- [ ] Pending
+- [x] Completed
 
 **Lessons:** [09 — Trusting infrastructure: headers, proxies and config](../lessons/lesson-09-trusting-infrastructure.md), [01 — Never trust the request body](../lessons/lesson-01-trust-boundaries-and-mass-assignment.md)
 

@@ -1,4 +1,5 @@
 # app/tests/test_rate_limiter.py
+import asyncio
 from unittest.mock import patch
 
 import httpx
@@ -30,6 +31,15 @@ class InMemoryRedis:
 
     def pipeline(self, transaction=True):
         return InMemoryPipeline(self)
+
+    async def zrem(self, key, *members):
+        items = self.zsets.get(key, {})
+        removed = 0
+        for member in members:
+            if member in items:
+                del items[member]
+                removed += 1
+        return removed
 
 
 class InMemoryPipeline:
@@ -173,7 +183,7 @@ async def test_rate_limiter_identifies_client_ip_when_unauthenticated(test_app):
     )
 
     identifier = limiter.get_identifier(request)
-    assert identifier == "ip:203.0.113.195"
+    assert identifier == "ip:127.0.0.1"
 
 
 @pytest.mark.asyncio
@@ -189,3 +199,47 @@ async def test_rate_limiter_fails_open_on_redis_connection_error(test_app):
         ) as client:
             res = await client.get("/limited")
             assert res.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.asyncio
+async def test_login_rate_limiter_ignores_spoofed_x_forwarded_for(
+    client: httpx.AsyncClient, fake_redis
+):
+    """Rotating X-Forwarded-For must not bypass login rate limiting."""
+    with patch("app.core.rate_limiter.get_redis_client", return_value=fake_redis):
+        for i in range(10):
+            res = await client.post(
+                "/api/v1/auth/login",
+                data={"username": "nobody@example.com", "password": "wrongpassword"},
+                headers={"X-Forwarded-For": f"198.51.100.{i + 1}"},
+            )
+            assert res.status_code != status.HTTP_429_TOO_MANY_REQUESTS
+
+        blocked = await client.post(
+            "/api/v1/auth/login",
+            data={"username": "nobody@example.com", "password": "wrongpassword"},
+            headers={"X-Forwarded-For": "198.51.100.99"},
+        )
+        assert blocked.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_concurrent_requests_atomic(fake_redis):
+    """Concurrent burst of 20 requests against a limit of 5 must admit exactly 5."""
+    app = FastAPI()
+    limiter = RateLimiter(max_requests=5, window_seconds=60, scope="concurrent")
+
+    @app.get("/burst", dependencies=[Depends(limiter)])
+    async def burst_endpoint():
+        return {"ok": True}
+
+    with patch("app.core.rate_limiter.get_redis_client", return_value=fake_redis):
+        transport = ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            responses = await asyncio.gather(*[client.get("/burst") for _ in range(20)])
+
+    statuses = [r.status_code for r in responses]
+    assert statuses.count(status.HTTP_200_OK) == 5
+    assert statuses.count(status.HTTP_429_TOO_MANY_REQUESTS) == 15

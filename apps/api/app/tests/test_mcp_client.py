@@ -130,3 +130,58 @@ async def test_mcp_client_multi_server_aggregation():
         assert "create_pdf" in tool_names
         assert client.tool_to_server["search_web"] == "http://127.0.0.1:8001/sse"
         assert client.tool_to_server["create_pdf"] == "http://127.0.0.1:8002/sse"
+
+
+@pytest.mark.asyncio
+async def test_mcp_client_caches_tools_and_expires_after_ttl():
+    """Two consecutive get_tool_definitions() calls reuse cache; advancing 61s refreshes."""
+    client = McpClientService(server_url="http://127.0.0.1:8001/sse")
+
+    mock_tool = MagicMock()
+    mock_tool.name = "search_web"
+    mock_tool.description = "Search the web"
+    mock_tool.input_schema = {"type": "object", "properties": {}}
+
+    mock_session = AsyncMock()
+    mock_session.initialize = AsyncMock()
+    mock_session.list_tools = AsyncMock(return_value=MagicMock(tools=[mock_tool]))
+
+    class MockContextManager:
+        async def __aenter__(self):
+            return mock_session
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    class MockSseContextManager:
+        async def __aenter__(self):
+            return (MagicMock(), MagicMock())
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    clock = [100.0]
+
+    with (
+        patch(
+            "app.services.mcp_client_service.time.monotonic",
+            side_effect=lambda: clock[0],
+        ),
+        patch(
+            "app.services.mcp_client_service.sse_client",
+            side_effect=lambda url: MockSseContextManager(),
+        ) as mock_sse,
+        patch(
+            "app.services.mcp_client_service.ClientSession",
+            side_effect=lambda r, w: MockContextManager(),
+        ),
+    ):
+        first = await client.get_tool_definitions()
+        second = await client.get_tool_definitions()
+        assert first == second
+        assert mock_sse.call_count == 1
+
+        clock[0] += 61.0
+        third = await client.get_tool_definitions()
+        assert len(third) == 1
+        assert mock_sse.call_count == 2

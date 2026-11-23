@@ -1,7 +1,10 @@
 # app/core/config.py
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEFAULT_SECRET_KEY = "CHANGE_THIS_TO_A_SUPER_SECRET_RANDOM_KEY_IN_PRODUCTION"
+_DEV_ENVIRONMENTS = {"development", "development_debug", "test"}
 
 
 class Settings(BaseSettings):
@@ -29,10 +32,13 @@ class Settings(BaseSettings):
 
     # Redis - Cache & Rate Limiting
     REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_MAX_CONNECTIONS: int = 50
+    REDIS_SOCKET_TIMEOUT: float = 0.5
+    REDIS_POOL_TIMEOUT: float = 0.2
     RATE_LIMIT_PER_MINUTE: int = 30
 
     # Authentication & Security
-    SECRET_KEY: str = "CHANGE_THIS_TO_A_SUPER_SECRET_RANDOM_KEY_IN_PRODUCTION"
+    SECRET_KEY: str = _DEFAULT_SECRET_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
@@ -74,6 +80,16 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env", "../../.env"), extra="ignore"
     )
+
+    @model_validator(mode="after")
+    def _require_strong_secret(self) -> "Settings":
+        if self.ENVIRONMENT not in _DEV_ENVIRONMENTS and (
+            self.SECRET_KEY == _DEFAULT_SECRET_KEY or len(self.SECRET_KEY) < 32
+        ):
+            raise ValueError(
+                "SECRET_KEY must be set to a random value of at least 32 characters"
+            )
+        return self
 
 
 settings = Settings()

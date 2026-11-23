@@ -163,3 +163,81 @@ async def test_unauthenticated_chat_access_rejected(client: httpx.AsyncClient):
     assert (
         await client.delete(f"/api/v1/chats/{random_id}")
     ).status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.asyncio
+async def test_list_sessions_pagination_and_limit_bounds(
+    client: httpx.AsyncClient, db_session: AsyncSession
+):
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from app.models.chat import ChatSessionModel
+    from app.models.user import UserModel
+
+    token = await get_auth_token(client, "paginate_chat@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    user = await db_session.scalar(
+        select(UserModel).where(UserModel.email == "paginate_chat@example.com")
+    )
+    assert user is not None
+
+    base_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    for i in range(150):
+        db_session.add(
+            ChatSessionModel(
+                id=uuid.uuid4(),
+                user_id=user.id,
+                title=f"Session {i:03d}",
+                created_at=base_time + timedelta(seconds=i),
+                updated_at=base_time + timedelta(seconds=i),
+            )
+        )
+    await db_session.commit()
+
+    # Default limit returns 100
+    default_res = await client.get("/api/v1/chats", headers=headers)
+    assert default_res.status_code == status.HTTP_200_OK
+    assert len(default_res.json()) == 100
+
+    # Cursor pagination with limit=10 & before=<created_at of 10th>
+    page1 = await client.get("/api/v1/chats?limit=10", headers=headers)
+    assert page1.status_code == status.HTTP_200_OK
+    page1_items = page1.json()
+    assert len(page1_items) == 10
+    assert page1_items[0]["title"] == "Session 149"
+
+    cursor = page1_items[-1]["created_at"]
+    page2 = await client.get(
+        "/api/v1/chats", params={"limit": 10, "before": cursor}, headers=headers
+    )
+    assert page2.status_code == status.HTTP_200_OK
+    page2_items = page2.json()
+    assert len(page2_items) == 10
+    assert page2_items[0]["title"] == "Session 139"
+    assert {x["id"] for x in page1_items}.isdisjoint({x["id"] for x in page2_items})
+
+    # Limit > 200 rejected with 422
+    over_limit = await client.get("/api/v1/chats?limit=500", headers=headers)
+    assert over_limit.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_message_content_over_32000_chars_rejected(client: httpx.AsyncClient):
+    """Messages longer than 32,000 characters must fail schema validation (422)."""
+    token = await get_auth_token(client, "longmsg_chat@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create_res = await client.post(
+        "/api/v1/chats", json={"title": "Limit Test"}, headers=headers
+    )
+    session_id = create_res.json()["id"]
+
+    res = await client.post(
+        f"/api/v1/chats/{session_id}/stream",
+        json={"content": "a" * 32_001},
+        headers=headers,
+    )
+    assert res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

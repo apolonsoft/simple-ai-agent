@@ -29,14 +29,14 @@ echo -e "${GREEN}🚀 [Backend] Starting FastAPI at http://localhost:8000 ...${N
     cd "$ROOT_DIR/apps/api" || exit 1
     if [ -f "$ROOT_DIR/apps/api/.venv/bin/activate" ]; then
         source "$ROOT_DIR/apps/api/.venv/bin/activate"
-        python3 -m uvicorn app.main:app --reload --port 8000
+        python3 -m uvicorn app.main:app --reload --port 8000 --proxy-headers --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-127.0.0.1}"
     elif [ -f "$ROOT_DIR/.venv/bin/activate" ]; then
         source "$ROOT_DIR/.venv/bin/activate"
-        python3 -m uvicorn app.main:app --reload --port 8000
+        python3 -m uvicorn app.main:app --reload --port 8000 --proxy-headers --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-127.0.0.1}"
     elif command -v uv &>/dev/null; then
         uv run fastapi dev app/main.py --port 8000
     else
-        python3 -m uvicorn app.main:app --reload --port 8000
+        python3 -m uvicorn app.main:app --reload --port 8000 --proxy-headers --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-127.0.0.1}"
     fi
 ) &
 

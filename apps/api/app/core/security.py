@@ -1,4 +1,6 @@
 # app/core/security.py
+import asyncio
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -8,6 +10,7 @@ from app.core.config import settings
 
 # Argon2 password hasher
 password_hash = PasswordHash.recommended()
+DUMMY_PASSWORD_HASH = password_hash.hash(secrets.token_urlsafe(16))
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -16,6 +19,16 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return password_hash.hash(password)
+
+
+async def hash_password_async(password: str) -> str:
+    """Hash a password in a worker thread to avoid blocking the event loop."""
+    return await asyncio.to_thread(password_hash.hash, password)
+
+
+async def verify_password_async(plain: str, hashed: str) -> bool:
+    """Verify a password in a worker thread to avoid blocking the event loop."""
+    return await asyncio.to_thread(password_hash.verify, plain, hashed)
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:

@@ -83,12 +83,10 @@ async def test_change_password_success_and_login_with_new_password(
 
 @pytest.mark.asyncio
 async def test_change_password_revokes_old_session(client: httpx.AsyncClient):
-    """Changing password must revoke the active token so subsequent requests fail with 401."""
-    fake_redis = AsyncFakeRedis()
-
+    """Changing password must revoke the active token even when Redis is unavailable."""
     with patch(
-        "app.core.session_revocation.get_redis_client",
-        new=AsyncMock(return_value=fake_redis),
+        "app.core.redis.get_redis_client",
+        new=AsyncMock(side_effect=ConnectionError("Redis is down")),
     ):
         token = await get_auth_token(
             client, "revoked_pw_user@example.com", "currentpass123"

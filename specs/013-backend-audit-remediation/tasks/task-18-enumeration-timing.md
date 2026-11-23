@@ -1,6 +1,6 @@
 ### Task 18: Remove Account-Enumeration Timing Signals
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [10 — Side channels: what response time reveals](../lessons/lesson-10-side-channels-and-enumeration.md)
 

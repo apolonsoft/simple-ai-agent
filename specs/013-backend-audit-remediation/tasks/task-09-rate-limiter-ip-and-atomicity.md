@@ -1,6 +1,6 @@
 ### Task 09: Trust Only Real Client IPs and Make Rate Limiting Atomic
 
-- [ ] Pending
+- [x] Completed
 
 **Lessons:** [09 — Trusting infrastructure: headers, proxies and config](../lessons/lesson-09-trusting-infrastructure.md), [05 — Check-then-act races](../lessons/lesson-05-check-then-act-races.md)
 

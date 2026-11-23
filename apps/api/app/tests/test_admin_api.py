@@ -1,4 +1,5 @@
 # app/tests/test_admin_api.py
+import asyncio
 import uuid
 
 import httpx
@@ -248,6 +249,114 @@ async def test_admin_unban_user_restores_access(
     assert (
         await client.get("/api/v1/users/me", headers=target_headers)
     ).status_code == status.HTTP_200_OK
+
+
+@pytest.mark.asyncio
+async def test_admin_unban_does_not_revalidate_pre_ban_token(
+    client: httpx.AsyncClient,
+):
+    """Tokens issued before a ban must stay 401 after unban; fresh login works."""
+    _, admin_token = await create_user_and_token(
+        client, "unban_revoke_admin@example.com", role="admin"
+    )
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    target_user, pre_ban_token = await create_user_and_token(
+        client, "pre_ban_user@example.com", role="user", password="password123"
+    )
+    pre_ban_headers = {"Authorization": f"Bearer {pre_ban_token}"}
+
+    # Ensure iat < tokens_valid_after
+    await asyncio.sleep(1.05)
+
+    ban_res = await client.post(
+        f"/api/v1/admin/users/{target_user['id']}/ban",
+        json={"reason": "Abuse"},
+        headers=admin_headers,
+    )
+    assert ban_res.status_code == status.HTTP_200_OK
+
+    unban_res = await client.post(
+        f"/api/v1/admin/users/{target_user['id']}/unban",
+        headers=admin_headers,
+    )
+    assert unban_res.status_code == status.HTTP_200_OK
+
+    # Pre-ban token must remain rejected
+    assert (
+        await client.get("/api/v1/users/me", headers=pre_ban_headers)
+    ).status_code == status.HTTP_401_UNAUTHORIZED
+
+    # Fresh login after unban succeeds
+    login_res = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "pre_ban_user@example.com", "password": "password123"},
+    )
+    assert login_res.status_code == status.HTTP_200_OK
+    fresh_headers = {"Authorization": f"Bearer {login_res.json()['access_token']}"}
+    assert (
+        await client.get("/api/v1/users/me", headers=fresh_headers)
+    ).status_code == status.HTTP_200_OK
+
+
+@pytest.mark.asyncio
+async def test_regular_admin_cannot_unban_admin_but_super_admin_can(
+    client: httpx.AsyncClient,
+):
+    """Regular admins cannot unban administrative accounts; super_admin can."""
+    _, super_token = await create_user_and_token(
+        client, "unban_hier_super@example.com", role="super_admin"
+    )
+    _, regular_admin_token = await create_user_and_token(
+        client, "unban_hier_admin_y@example.com", role="admin"
+    )
+    target_admin, _ = await create_user_and_token(
+        client, "unban_hier_admin_x@example.com", role="admin"
+    )
+
+    super_headers = {"Authorization": f"Bearer {super_token}"}
+    regular_headers = {"Authorization": f"Bearer {regular_admin_token}"}
+
+    # Super admin bans admin X
+    ban_res = await client.post(
+        f"/api/v1/admin/users/{target_admin['id']}/ban",
+        json={"reason": "Policy violation"},
+        headers=super_headers,
+    )
+    assert ban_res.status_code == status.HTTP_200_OK
+
+    # Regular admin Y attempts to unban admin X -> 403 Forbidden
+    forbidden_res = await client.post(
+        f"/api/v1/admin/users/{target_admin['id']}/unban",
+        headers=regular_headers,
+    )
+    assert forbidden_res.status_code == status.HTTP_403_FORBIDDEN
+
+    # Super admin unbans admin X -> 200 OK
+    unban_res = await client.post(
+        f"/api/v1/admin/users/{target_admin['id']}/unban",
+        headers=super_headers,
+    )
+    assert unban_res.status_code == status.HTTP_200_OK
+    assert unban_res.json()["user"]["is_banned"] is False
+
+
+@pytest.mark.asyncio
+async def test_admin_search_escapes_wildcards(client: httpx.AsyncClient):
+    """Literal '_' and '%' in admin search must not act as SQL LIKE wildcards."""
+    _, admin_token = await create_user_and_token(
+        client, "search_esc_admin@example.com", role="admin"
+    )
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    await create_user_and_token(client, "a_b@x.com", role="user")
+    await create_user_and_token(client, "axb@x.com", role="user")
+
+    res = await client.get("/api/v1/admin/users?search=a_b", headers=admin_headers)
+    assert res.status_code == status.HTTP_200_OK
+    data = res.json()
+    assert data["total"] == 1
+    assert data["items"][0]["email"] == "a_b@x.com"
 
 
 @pytest.mark.asyncio

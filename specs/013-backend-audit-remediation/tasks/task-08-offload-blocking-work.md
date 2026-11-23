@@ -1,6 +1,6 @@
 ### Task 08: Move Blocking Work off the Event Loop
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [06 — What actually blocks the event loop](../lessons/lesson-06-event-loop-blocking.md)
 

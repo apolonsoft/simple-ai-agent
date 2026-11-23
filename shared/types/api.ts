@@ -12,7 +12,7 @@ export interface HealthCheckResponse {
 export interface UserResponse {
   id: string;
   email: string;
-  role: 'admin' | 'user';
+  role: 'user' | 'admin' | 'super_admin';
   is_active: boolean;
   created_at: string;
 }
@@ -20,7 +20,11 @@ export interface UserResponse {
 export interface UserRegisterRequest {
   email: string;
   password: string;
-  role?: 'admin' | 'user';
+}
+
+export interface PaginationParams {
+  limit?: number;
+  before?: string;
 }
 
 export interface TokenResponse {
@@ -99,6 +103,6 @@ export interface SseToolCallEvent {
 
 export interface SseToolResultEvent {
   tool_call_id: string;
-  status: 'executed' | 'rejected';
+  status: 'executed' | 'failed' | 'rejected';
   result?: any;
 }

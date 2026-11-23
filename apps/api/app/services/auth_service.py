@@ -4,12 +4,18 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.core.security import create_access_token, get_password_hash, verify_password
+from app.core.security import (
+    DUMMY_PASSWORD_HASH,
+    create_access_token,
+    hash_password_async,
+    verify_password_async,
+)
 from app.core.session_revocation import revoke_user_sessions
 from app.models.password_reset import PasswordResetModel
 from app.models.user import UserModel
@@ -17,9 +23,8 @@ from app.schemas.user import UserCreate
 
 
 class AuthService:
-    def __init__(self, db: AsyncSession, redis_client=None):
+    def __init__(self, db: AsyncSession):
         self.db = db
-        self.redis = redis_client
 
     @staticmethod
     def _hash_token(raw_token: str) -> str:
@@ -32,18 +37,25 @@ class AuthService:
         return result.first()
 
     async def register_user(self, user_in: UserCreate) -> UserModel:
-        hashed_pw = get_password_hash(user_in.password)
+        hashed_pw = await hash_password_async(user_in.password)
         user = UserModel(email=user_in.email, hashed_password=hashed_pw, role="user")
         self.db.add(user)
-        await self.db.commit()
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email is already registered.",
+            ) from None
         await self.db.refresh(user)
         return user
 
     async def authenticate(self, email: str, password: str) -> UserModel | None:
         user = await self.get_by_email(email)
-        if not user or not verify_password(password, user.hashed_password):
-            return None
-        return user
+        hashed = user.hashed_password if user else DUMMY_PASSWORD_HASH
+        valid = await verify_password_async(password, hashed)
+        return user if user and valid else None
 
     def generate_token(self, user: UserModel) -> str:
         payload = {"sub": str(user.id), "email": user.email, "role": user.role}
@@ -122,9 +134,19 @@ class AuthService:
         if not user or not user.is_active:
             return False
 
-        user.hashed_password = get_password_hash(new_password)
+        now = datetime.now(timezone.utc)
+        user.hashed_password = await hash_password_async(new_password)
+        revoke_user_sessions(user)
         record.is_used = True
-        record.used_at = datetime.now(timezone.utc)
+        record.used_at = now
+        await self.db.execute(
+            update(PasswordResetModel)
+            .where(
+                PasswordResetModel.user_id == user.id,
+                PasswordResetModel.is_used.is_(False),
+            )
+            .values(is_used=True, used_at=now)
+        )
         await self.db.commit()
         return True
 
@@ -133,10 +155,10 @@ class AuthService:
     ) -> None:
         """
         Validates the user's current password, checks that the new password is not identical,
-        updates the password hash in the database, and registers a revocation timestamp in Redis
+        updates the password hash in the database, and advances tokens_valid_after
         to invalidate active tokens across all sessions.
         """
-        if not verify_password(current_password, user.hashed_password):
+        if not await verify_password_async(current_password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Current password is incorrect.",
@@ -148,13 +170,7 @@ class AuthService:
                 detail="New password cannot be the same as current password.",
             )
 
-        user.hashed_password = get_password_hash(new_password)
+        user.hashed_password = await hash_password_async(new_password)
+        revoke_user_sessions(user)
         await self.db.commit()
         await self.db.refresh(user)
-
-        # Invalidate existing JWT sessions across devices via Redis
-        await revoke_user_sessions(
-            user.id,
-            settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            client=self.redis,
-        )

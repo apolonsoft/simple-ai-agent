@@ -164,3 +164,60 @@ async def test_register_password_length_validation(client: httpx.AsyncClient):
         json={"email": "long@example.com", "password": "a" * 129},
     )
     assert long_res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_get_me_rejects_query_param_token(client: httpx.AsyncClient):
+    """Protected endpoints must reject JWTs passed via ?token= query parameter."""
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": "querytoken@example.com", "password": "securepassword123"},
+    )
+    login_res = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "querytoken@example.com", "password": "securepassword123"},
+    )
+    token = login_res.json()["access_token"]
+
+    res = await client.get(f"/api/v1/auth/me?token={token}")
+    assert res.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.asyncio
+async def test_login_unknown_email_verifies_dummy_hash(client: httpx.AsyncClient):
+    """Login with an unknown email must still run verify_password_async against dummy hash."""
+    from unittest.mock import AsyncMock, patch
+
+    with patch(
+        "app.services.auth_service.verify_password_async",
+        new=AsyncMock(return_value=False),
+    ) as mock_verify:
+        res = await client.post(
+            "/api/v1/auth/login",
+            data={"username": "nonexistent@example.com", "password": "anypassword"},
+        )
+
+    assert res.status_code == status.HTTP_401_UNAUTHORIZED
+    assert mock_verify.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_register_duplicate_race_returns_409(client: httpx.AsyncClient):
+    """Concurrent duplicate signup hitting unique index must return 409, not 500."""
+    from unittest.mock import AsyncMock, patch
+
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": "race@example.com", "password": "securepassword123"},
+    )
+
+    with patch(
+        "app.services.auth_service.AuthService.get_by_email",
+        new=AsyncMock(return_value=None),
+    ):
+        res = await client.post(
+            "/api/v1/auth/register",
+            json={"email": "race@example.com", "password": "securepassword123"},
+        )
+
+    assert res.status_code == status.HTTP_409_CONFLICT

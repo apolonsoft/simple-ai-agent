@@ -7,7 +7,25 @@ from app.models.user import UserModel
 from app.schemas.user import UserProfileUpdate
 from app.services.storage_service import StorageService
 
-ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_IMAGE_TYPES: dict[str, str] = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+}
+
+
+def _has_valid_magic_bytes(file_bytes: bytes, content_type: str) -> bool:
+    if content_type == "image/jpeg":
+        return file_bytes.startswith(b"\xff\xd8\xff")
+    if content_type == "image/png":
+        return file_bytes.startswith(b"\x89PNG")
+    if content_type == "image/webp":
+        return (
+            len(file_bytes) >= 12
+            and file_bytes[:4] == b"RIFF"
+            and file_bytes[8:12] == b"WEBP"
+        )
+    return False
 
 
 class UserService:
@@ -36,16 +54,14 @@ class UserService:
 
     async def upload_avatar(self, user: UserModel, file: UploadFile) -> UserModel:
         """Validates and uploads an avatar file to S3 storage, updating user.avatar_url."""
-        if (
-            not file.content_type
-            or file.content_type.lower() not in ALLOWED_IMAGE_TYPES
-        ):
+        content_type = (file.content_type or "").lower()
+        if content_type not in ALLOWED_IMAGE_TYPES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid image format. Allowed formats: image/jpeg, image/png, image/webp",
             )
 
-        file_bytes = await file.read()
+        file_bytes = await file.read(settings.MAX_AVATAR_SIZE_BYTES + 1)
         if not file_bytes:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -59,11 +75,17 @@ class UserService:
                 detail=f"Image exceeds maximum allowed size of {max_mb}MB",
             )
 
-        filename = file.filename or f"avatar_{user.id}.png"
+        if not _has_valid_magic_bytes(file_bytes, content_type):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded file content does not match declared image format",
+            )
+
+        extension = ALLOWED_IMAGE_TYPES[content_type]
         avatar_url = await self.storage_service.upload_file(
             file_bytes=file_bytes,
-            original_filename=filename,
-            content_type=file.content_type,
+            content_type=content_type,
+            extension=extension,
         )
 
         user.avatar_url = avatar_url

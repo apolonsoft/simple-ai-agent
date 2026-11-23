@@ -1,6 +1,6 @@
 ### Task 13: Harden the Redis Connection Pool
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [07 — Session revocation and fail-open vs fail-closed](../lessons/lesson-07-session-revocation-and-failure-modes.md)
 

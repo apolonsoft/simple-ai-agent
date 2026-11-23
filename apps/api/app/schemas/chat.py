@@ -24,7 +24,9 @@ class ToolApprovalRequest(BaseModel):
 
 
 class ChatMessageCreate(BaseModel):
-    content: str = Field(..., min_length=1, description="Message text from user")
+    content: str = Field(
+        ..., min_length=1, max_length=32_000, description="Message text from user"
+    )
 
 
 class ChatMessageResponse(BaseModel):

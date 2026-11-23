@@ -1,6 +1,6 @@
 ### Task 19: Cache MCP Tool Definitions
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [06 — What actually blocks the event loop](../lessons/lesson-06-event-loop-blocking.md)
 

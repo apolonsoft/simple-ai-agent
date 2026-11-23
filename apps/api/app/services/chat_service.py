@@ -1,6 +1,7 @@
 # app/services/chat_service.py
 import json
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import select
@@ -38,12 +39,13 @@ class ChatService:
     async def list_user_sessions(
         self,
         user_id: uuid.UUID,
+        limit: int = 100,
+        before: datetime | None = None,
     ) -> list[ChatSessionModel]:
-        stmt = (
-            select(ChatSessionModel)
-            .where(ChatSessionModel.user_id == user_id)
-            .order_by(ChatSessionModel.created_at.desc())
-        )
+        stmt = select(ChatSessionModel).where(ChatSessionModel.user_id == user_id)
+        if before is not None:
+            stmt = stmt.where(ChatSessionModel.created_at < before)
+        stmt = stmt.order_by(ChatSessionModel.created_at.desc()).limit(limit)
         result = await self.db.scalars(stmt)
         return list(result.all())
 
@@ -125,18 +127,34 @@ class ChatService:
         self,
         session_id: uuid.UUID,
         user_id: uuid.UUID,
+        limit: int = 100,
+        before: datetime | None = None,
     ) -> list[ChatMessageModel] | None:
         session = await self.get_session(session_id, user_id)
         if not session:
             return None
 
+        stmt = select(ChatMessageModel).where(ChatMessageModel.session_id == session_id)
+        if before is not None:
+            stmt = stmt.where(ChatMessageModel.created_at < before)
+        stmt = stmt.order_by(ChatMessageModel.created_at.desc()).limit(limit)
+        result = await self.db.scalars(stmt)
+        return list(reversed(result.all()))
+
+    async def get_recent_messages(
+        self,
+        session_id: uuid.UUID,
+        limit: int,
+    ) -> list[ChatMessageModel]:
+        """Fetch the most recent `limit` messages in chronological order."""
         stmt = (
             select(ChatMessageModel)
             .where(ChatMessageModel.session_id == session_id)
-            .order_by(ChatMessageModel.created_at.asc())
+            .order_by(ChatMessageModel.created_at.desc())
+            .limit(limit)
         )
         result = await self.db.scalars(stmt)
-        return list(result.all())
+        return list(reversed(result.all()))
 
     async def get_message_for_update(
         self,
@@ -166,8 +184,12 @@ class ChatService:
             .where(
                 ChatMessageModel.session_id == session_id,
                 ChatMessageModel.tool_calls.isnot(None),
+                ChatMessageModel.tool_calls.contains(
+                    f'"id": "{tool_call_id}"', autoescape=True
+                ),
             )
             .order_by(ChatMessageModel.created_at.desc())
+            .limit(5)
         )
         result = await self.db.scalars(stmt)
         for msg in result.all():

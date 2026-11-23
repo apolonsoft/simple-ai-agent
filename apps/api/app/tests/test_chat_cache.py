@@ -1,4 +1,5 @@
 # app/tests/test_chat_cache.py
+import asyncio
 import uuid
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -12,21 +13,82 @@ from app.services.chat_service import ChatService
 from app.services.chat_stream_service import ChatStreamService
 
 
+class InMemoryCachePipeline:
+    def __init__(self, redis: "InMemorySimpleRedis"):
+        self.redis = redis
+        self.ops: list[tuple[Any, ...]] = []
+
+    def exists(self, key: str):
+        self.ops.append(("exists", key))
+        return self
+
+    def lrange(self, key: str, start: int, stop: int):
+        self.ops.append(("lrange", key, start, stop))
+        return self
+
+    def delete(self, *keys: str):
+        self.ops.append(("delete", keys))
+        return self
+
+    def rpush(self, key: str, *values: str):
+        self.ops.append(("rpush", key, values))
+        return self
+
+    def expire(self, key: str, ttl: int):
+        self.ops.append(("expire", key, ttl))
+        return self
+
+    async def execute(self):
+        results = []
+        for op in self.ops:
+            cmd = op[0]
+            if cmd == "exists":
+                results.append(1 if op[1] in self.redis.lists else 0)
+            elif cmd == "lrange":
+                _, key, start, stop = op
+                items = self.redis.lists.get(key, [])
+                end = None if stop == -1 else stop + 1
+                results.append(list(items[start:end]))
+            elif cmd == "delete":
+                removed = sum(
+                    1 for k in op[1] if self.redis.lists.pop(k, None) is not None
+                )
+                results.append(removed)
+            elif cmd == "rpush":
+                _, key, values = op
+                lst = self.redis.lists.setdefault(key, [])
+                lst.extend(values)
+                results.append(len(lst))
+            elif cmd == "expire":
+                results.append(True)
+        return results
+
+
 class InMemorySimpleRedis:
-    """Mock Redis client for testing ChatCacheService operations."""
+    """Mock Redis client supporting list, pipeline, and Lua append for ChatCacheService."""
 
     def __init__(self):
-        self.store = {}
+        self.lists: dict[str, list[str]] = {}
 
-    async def get(self, key: str):
-        return self.store.get(key)
+    def pipeline(self, transaction: bool = True):
+        return InMemoryCachePipeline(self)
 
-    async def set(self, key: str, value: str, ex: int | None = None):
-        self.store[key] = value
-        return True
+    def register_script(self, script: str):
+        async def _run(keys: list[str], args: list[str]) -> int:
+            key = keys[0]
+            if key not in self.lists:
+                return 0
+            payload, window_str, _ttl = args
+            window = int(window_str)
+            self.lists[key].append(payload)
+            if window > 0:
+                self.lists[key] = self.lists[key][-window:]
+            return 1
 
-    async def delete(self, key: str):
-        return self.store.pop(key, None) is not None
+        return _run
+
+    async def delete(self, *keys: str):
+        return sum(1 for k in keys if self.lists.pop(k, None) is not None)
 
 
 class MockLLMProvider(BaseLLMProvider):
@@ -141,8 +203,8 @@ async def test_chat_cache_invalidate():
 @pytest.mark.asyncio
 async def test_chat_cache_fail_open_on_redis_error():
     broken_redis = MagicMock()
-    broken_redis.get = AsyncMock(side_effect=Exception("Redis node down"))
-    broken_redis.set = AsyncMock(side_effect=Exception("Redis node down"))
+    broken_redis.pipeline.side_effect = Exception("Redis node down")
+    broken_redis.register_script.side_effect = Exception("Redis node down")
     broken_redis.delete = AsyncMock(side_effect=Exception("Redis node down"))
 
     cache_service = ChatCacheService(redis_client=broken_redis)
@@ -270,3 +332,41 @@ async def test_delete_session_invalidates_redis_cache(db_session):
 
     # Cache must be invalidated
     assert await cache_service.get_messages(session.id) is None
+
+
+@pytest.mark.asyncio
+async def test_chat_cache_concurrent_append_preserves_all_messages():
+    mock_redis = InMemorySimpleRedis()
+    cache_service = ChatCacheService(redis_client=cast(Any, mock_redis), window=30)
+    session_id = uuid.uuid4()
+
+    await cache_service.set_messages(session_id, [{"role": "user", "content": "seed"}])
+    results = await asyncio.gather(
+        *[
+            cache_service.append_message(
+                session_id, {"role": "user", "content": f"msg-{i}"}
+            )
+            for i in range(20)
+        ]
+    )
+    assert all(results)
+
+    cached = await cache_service.get_messages(session_id)
+    assert cached is not None
+    assert len(cached) == 21
+
+
+@pytest.mark.asyncio
+async def test_chat_cache_trims_to_window_size():
+    mock_redis = InMemorySimpleRedis()
+    cache_service = ChatCacheService(redis_client=cast(Any, mock_redis), window=10)
+    session_id = uuid.uuid4()
+
+    messages = [{"role": "user", "content": f"m-{i}"} for i in range(50)]
+    assert await cache_service.set_messages(session_id, messages) is True
+
+    cached = await cache_service.get_messages(session_id)
+    assert cached is not None
+    assert len(cached) == 10
+    assert cached[0]["content"] == "m-40"
+    assert cached[-1]["content"] == "m-49"

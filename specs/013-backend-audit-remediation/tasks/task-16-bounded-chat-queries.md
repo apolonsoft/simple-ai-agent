@@ -1,6 +1,6 @@
 ### Task 16: Bound Chat Queries with Pagination and Windowed Context
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [03 — What your ORM does behind your back](../lessons/lesson-03-orm-loading-strategies.md)
 

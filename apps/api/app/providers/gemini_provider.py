@@ -94,7 +94,7 @@ class GeminiProvider(BaseLLMProvider):
                 "Gemini API key is not configured. Set GEMINI_API_KEY in your environment."
             )
 
-        url = f"{self.base_url}/models/{self.model}:streamGenerateContent?alt=sse&key={self.api_key}"
+        url = f"{self.base_url}/models/{self.model}:streamGenerateContent?alt=sse"
         payload = self._format_payload(
             messages=messages,
             temperature=temperature,
@@ -105,7 +105,12 @@ class GeminiProvider(BaseLLMProvider):
         timeout = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
-                async with client.stream("POST", url, json=payload) as response:
+                async with client.stream(
+                    "POST",
+                    url,
+                    json=payload,
+                    headers={"x-goog-api-key": self.api_key},
+                ) as response:
                     if response.status_code == 400:
                         body = await response.aread()
                         raise LLMProviderError(
@@ -155,10 +160,10 @@ class GeminiProvider(BaseLLMProvider):
     async def health_check(self) -> bool:
         if not self.api_key or self.api_key.startswith("your_"):
             return False
-        url = f"{self.base_url}/models/{self.model}?key={self.api_key}"
+        url = f"{self.base_url}/models/{self.model}"
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                res = await client.get(url)
+                res = await client.get(url, headers={"x-goog-api-key": self.api_key})
                 return res.status_code == 200
         except Exception:
             return False

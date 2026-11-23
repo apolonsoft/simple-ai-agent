@@ -1,6 +1,6 @@
 ### Task 10: Refuse to Start with a Default Secret Key
 
-- [ ] Pending
+- [x] Completed
 
 **Lesson:** [09 — Trusting infrastructure: headers, proxies and config](../lessons/lesson-09-trusting-infrastructure.md)
 
