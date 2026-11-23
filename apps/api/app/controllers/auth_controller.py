@@ -1,5 +1,5 @@
 # app/controllers/auth_controller.py
-from fastapi import HTTPException, status
+from fastapi import BackgroundTasks, HTTPException, status
 
 from app.models.user import UserModel
 from app.schemas.user import (
@@ -40,10 +40,17 @@ class AuthController:
         token = self.service.generate_token(user)
         return Token(access_token=token)
 
-    async def forgot_password(self, email: str) -> MessageResponse:
+    async def forgot_password(
+        self, email: str, background_tasks: BackgroundTasks | None = None
+    ) -> MessageResponse:
         raw_token = await self.service.create_password_reset(email)
         if raw_token:
-            await self.email_service.send_password_reset_email(email, raw_token)
+            if background_tasks is not None:
+                background_tasks.add_task(
+                    self.email_service.send_password_reset_email, email, raw_token
+                )
+            else:
+                await self.email_service.send_password_reset_email(email, raw_token)
 
         return MessageResponse(
             message="If an account with that email exists, a password reset link has been sent."

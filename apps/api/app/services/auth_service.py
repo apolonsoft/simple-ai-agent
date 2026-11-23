@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.security import (
+    DUMMY_PASSWORD_HASH,
     create_access_token,
     hash_password_async,
     verify_password_async,
@@ -44,9 +45,9 @@ class AuthService:
 
     async def authenticate(self, email: str, password: str) -> UserModel | None:
         user = await self.get_by_email(email)
-        if not user or not await verify_password_async(password, user.hashed_password):
-            return None
-        return user
+        hashed = user.hashed_password if user else DUMMY_PASSWORD_HASH
+        valid = await verify_password_async(password, hashed)
+        return user if user and valid else None
 
     def generate_token(self, user: UserModel) -> str:
         payload = {"sub": str(user.id), "email": user.email, "role": user.role}

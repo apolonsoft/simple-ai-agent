@@ -292,3 +292,33 @@ async def test_reset_password_revokes_jwt_and_invalidates_sibling_reset_tokens(
         json={"token": reset_tokens[1], "new_password": "AnotherPassword789!"},
     )
     assert sibling_res.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_schedules_email_as_background_task(
+    client: httpx.AsyncClient,
+):
+    from fastapi import BackgroundTasks
+
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": "bg_reset@example.com", "password": "Password123!"},
+    )
+
+    with (
+        patch(
+            "app.services.email_service.EmailService.send_password_reset_email",
+            new_callable=AsyncMock,
+        ) as mock_send_email,
+        patch.object(
+            BackgroundTasks, "add_task", autospec=True, wraps=BackgroundTasks.add_task
+        ) as spy_add_task,
+    ):
+        res = await client.post(
+            "/api/v1/auth/forgot-password",
+            json={"email": "bg_reset@example.com"},
+        )
+
+    assert res.status_code == status.HTTP_200_OK
+    assert spy_add_task.call_count == 1
+    assert spy_add_task.call_args.args[1] == mock_send_email

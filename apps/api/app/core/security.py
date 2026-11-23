@@ -1,5 +1,6 @@
 # app/core/security.py
 import asyncio
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -9,6 +10,7 @@ from app.core.config import settings
 
 # Argon2 password hasher
 password_hash = PasswordHash.recommended()
+DUMMY_PASSWORD_HASH = password_hash.hash(secrets.token_urlsafe(16))
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

@@ -181,3 +181,21 @@ async def test_get_me_rejects_query_param_token(client: httpx.AsyncClient):
 
     res = await client.get(f"/api/v1/auth/me?token={token}")
     assert res.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.asyncio
+async def test_login_unknown_email_verifies_dummy_hash(client: httpx.AsyncClient):
+    """Login with an unknown email must still run verify_password_async against dummy hash."""
+    from unittest.mock import AsyncMock, patch
+
+    with patch(
+        "app.services.auth_service.verify_password_async",
+        new=AsyncMock(return_value=False),
+    ) as mock_verify:
+        res = await client.post(
+            "/api/v1/auth/login",
+            data={"username": "nonexistent@example.com", "password": "anypassword"},
+        )
+
+    assert res.status_code == status.HTTP_401_UNAUTHORIZED
+    assert mock_verify.await_count == 1

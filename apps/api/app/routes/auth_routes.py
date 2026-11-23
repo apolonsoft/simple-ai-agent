@@ -1,5 +1,5 @@
 # app/routes/auth_routes.py
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -81,10 +81,13 @@ async def admin_dashboard(admin_user: UserModel = Depends(require_role("admin"))
 )
 async def forgot_password(
     request_data: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
     controller: AuthController = Depends(get_auth_controller),
 ):
     """Initiates password reset flow and dispatches email via SMTP/Mailpit."""
-    return await controller.forgot_password(email=request_data.email)
+    return await controller.forgot_password(
+        email=request_data.email, background_tasks=background_tasks
+    )
 
 
 @router.get(

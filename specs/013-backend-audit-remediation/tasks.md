@@ -19,7 +19,7 @@ Execute one task at a time (see `.agent/rules/task-by-task.md`). Each task links
 - [x] Task 15: Accept JWTs only from the Authorization header (`tasks/task-15-header-only-jwt.md`)
 - [x] Task 16: Bound chat queries with pagination and windowed context (`tasks/task-16-bounded-chat-queries.md`)
 - [x] Task 17: Bound avatar uploads (`tasks/task-17-bounded-avatar-upload.md`)
-- [ ] Task 18: Remove account-enumeration timing signals (`tasks/task-18-enumeration-timing.md`)
+- [x] Task 18: Remove account-enumeration timing signals (`tasks/task-18-enumeration-timing.md`)
 - [ ] Task 19: Cache MCP tool definitions (`tasks/task-19-cache-mcp-tools.md`)
 - [ ] Task 20: Input limits and error hygiene (`tasks/task-20-input-limits-error-hygiene.md`)
 - [ ] Task 21: Gemini key header and admin search escaping (`tasks/task-21-gemini-header-search-escape.md`)
