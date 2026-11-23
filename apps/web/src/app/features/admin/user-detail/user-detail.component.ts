@@ -5,6 +5,7 @@ import { RouterLink, ActivatedRoute } from '@angular/router';
 import { AdminService } from '../../../core/services/admin.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { UserRole } from '../../../core/models/admin.model';
+import { canBanUser, canChangeUserRole } from '../../../core/utils/admin-permissions';
 
 @Component({
   selector: 'app-user-detail',
@@ -31,22 +32,9 @@ export class UserDetailComponent implements OnInit {
   readonly isSuperAdmin = computed(() => this.currentUser()?.role === 'super_admin');
   readonly currentUserId = computed(() => this.currentUser()?.id);
 
-  readonly canBan = computed(() => {
-    const u = this.user();
-    if (!u) return false;
-    if (u.id === this.currentUserId()) return false;
-    if (u.role === 'super_admin') return false;
-    if (u.role === 'admin' && !this.isSuperAdmin()) return false;
-    return true;
-  });
+  readonly canBan = computed(() => canBanUser(this.currentUser(), this.user()));
 
-  readonly canChangeRole = computed(() => {
-    const u = this.user();
-    if (!u) return false;
-    if (!this.isSuperAdmin()) return false;
-    if (u.id === this.currentUserId()) return false;
-    return true;
-  });
+  readonly canChangeRole = computed(() => canChangeUserRole(this.currentUser(), this.user()));
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
