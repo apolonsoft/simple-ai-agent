@@ -160,3 +160,20 @@ async def test_upload_avatar_oversized(client: httpx.AsyncClient):
         res = await client.post("/api/v1/users/me/avatar", files=files, headers=headers)
         assert res.status_code == status.HTTP_400_BAD_REQUEST
         assert "exceeds maximum allowed size" in res.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_get_profile_does_not_create_s3_client_per_request(
+    client: httpx.AsyncClient,
+):
+    """GET /users/me must not construct a boto3 S3 client per request."""
+    token = await get_auth_token(client, "s3lazy_profile@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with patch("app.services.storage_service.boto3.client") as mock_boto_client:
+        res1 = await client.get("/api/v1/users/me", headers=headers)
+        res2 = await client.get("/api/v1/users/me", headers=headers)
+
+    assert res1.status_code == status.HTTP_200_OK
+    assert res2.status_code == status.HTTP_200_OK
+    assert mock_boto_client.call_count <= 1

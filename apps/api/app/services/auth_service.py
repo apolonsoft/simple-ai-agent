@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
-from app.core.security import create_access_token, get_password_hash, verify_password
+from app.core.security import (
+    create_access_token,
+    hash_password_async,
+    verify_password_async,
+)
 from app.core.session_revocation import revoke_user_sessions
 from app.models.password_reset import PasswordResetModel
 from app.models.user import UserModel
@@ -32,7 +36,7 @@ class AuthService:
         return result.first()
 
     async def register_user(self, user_in: UserCreate) -> UserModel:
-        hashed_pw = get_password_hash(user_in.password)
+        hashed_pw = await hash_password_async(user_in.password)
         user = UserModel(email=user_in.email, hashed_password=hashed_pw, role="user")
         self.db.add(user)
         await self.db.commit()
@@ -41,7 +45,7 @@ class AuthService:
 
     async def authenticate(self, email: str, password: str) -> UserModel | None:
         user = await self.get_by_email(email)
-        if not user or not verify_password(password, user.hashed_password):
+        if not user or not await verify_password_async(password, user.hashed_password):
             return None
         return user
 
@@ -122,7 +126,7 @@ class AuthService:
         if not user or not user.is_active:
             return False
 
-        user.hashed_password = get_password_hash(new_password)
+        user.hashed_password = await hash_password_async(new_password)
         record.is_used = True
         record.used_at = datetime.now(timezone.utc)
         await self.db.commit()
@@ -136,7 +140,7 @@ class AuthService:
         updates the password hash in the database, and registers a revocation timestamp in Redis
         to invalidate active tokens across all sessions.
         """
-        if not verify_password(current_password, user.hashed_password):
+        if not await verify_password_async(current_password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Current password is incorrect.",
@@ -148,7 +152,7 @@ class AuthService:
                 detail="New password cannot be the same as current password.",
             )
 
-        user.hashed_password = get_password_hash(new_password)
+        user.hashed_password = await hash_password_async(new_password)
         await self.db.commit()
         await self.db.refresh(user)
 

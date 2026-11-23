@@ -1,4 +1,5 @@
 # app/services/chat_stream_service.py
+import asyncio
 import json
 import logging
 import re
@@ -353,7 +354,9 @@ class ChatStreamService:
             if tool_name in mcp_names:
                 tool_result = await mcp_client.call_tool(tool_name, tool_args)
             else:
-                tool_result = execute_tool(tool_name, tool_args)
+                tool_result = await asyncio.to_thread(
+                    execute_tool, tool_name, tool_args
+                )
             tool_error = None
         except Exception as exc:
             tool_result = None

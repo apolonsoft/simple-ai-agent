@@ -1,4 +1,5 @@
 # app/core/security.py
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -16,6 +17,16 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return password_hash.hash(password)
+
+
+async def hash_password_async(password: str) -> str:
+    """Hash a password in a worker thread to avoid blocking the event loop."""
+    return await asyncio.to_thread(password_hash.hash, password)
+
+
+async def verify_password_async(plain: str, hashed: str) -> bool:
+    """Verify a password in a worker thread to avoid blocking the event loop."""
+    return await asyncio.to_thread(password_hash.verify, plain, hashed)
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
