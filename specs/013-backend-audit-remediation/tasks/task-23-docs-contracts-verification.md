@@ -1,6 +1,6 @@
 ### Task 23: Docs, Shared Contracts and Full Verification
 
-- [ ] Pending
+- [x] Completed
 
 **Lessons:** all — use [`lessons/index.md`](../lessons/index.md) as the review checklist.
 

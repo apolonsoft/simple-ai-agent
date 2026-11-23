@@ -182,13 +182,13 @@ class RateLimiter:
 ### 3.3. Redis Conversation Caching Layer (`app/services/chat_cache_service.py`)
 
 #### Purpose
-Eliminates PostgreSQL query pressure during multi-turn LLM inference by caching historical messages in Redis under `chat:history:{session_id}` with a 1-hour sliding TTL.
+Eliminates PostgreSQL query pressure during multi-turn LLM inference by caching the bounded conversation window as a Redis list under `chat:history:v2:{session_id}` with a 1-hour sliding TTL.
 
 #### Key Methods
-- `get_messages(session_id)`: Fetches cached turn context in $<1\text{ms}$. Returns `None` on cache miss or Redis error.
-- `set_messages(session_id, messages)`: Backfills Redis on initial cache miss.
-- `append_message(session_id, message)`: Atomically appends incoming user prompts and streamed assistant responses.
-- `invalidate(session_id)`: Purges the cached key upon thread deletion.
+- `get_messages(session_id)`: Fetches cached turn context in $<1\text{ms}$ via `EXISTS` + `LRANGE 0 -1`. Returns `None` on cache miss or Redis error.
+- `set_messages(session_id, messages)`: Backfills Redis with the last `CHAT_MEMORY_WINDOW_SIZE` messages in a transactional pipeline.
+- `append_message(session_id, message)`: Atomically appends and trims (`RPUSH` + `LTRIM` + `EXPIRE`) via a Lua script only when the key is already populated.
+- `invalidate(session_id)`: Purges both `v2` and legacy keys upon thread deletion or tool updates.
 
 ---
 
@@ -295,7 +295,9 @@ async def stream_chat(self, session_id, user_id, user_content, ...):
         if cached_history is not None:
             prior_history = cached_history  # Cache hit: avoids SELECT from PostgreSQL
         else:
-            prior_history = await chat_service.get_messages(session_id, user_id) or []
+            prior_history = await chat_service.get_recent_messages(
+                session_id, settings.CHAT_MEMORY_WINDOW_SIZE
+            )
             await self.cache_service.set_messages(session_id, prior_history) # Backfill Redis
 
         # Save incoming user prompt to PostgreSQL
@@ -319,13 +321,16 @@ async def stream_chat(self, session_id, user_id, user_content, ...):
                 "event": "chunk",
                 "data": json.dumps({"content": token}),
             }
-    except Exception as exc:
-        yield {"event": "error", "data": json.dumps({"error": f"LLM error: {str(exc)}"})}
+    except Exception:
+        logger.error("Error during LLM stream generation", exc_info=True)
+        yield {"event": "error", "data": json.dumps({"error": "The assistant is temporarily unavailable."})}
         return
 
     # ==============================================================================
-    # PHASE 3: POST-INFERENCE PERSISTENCE (~5ms DB checkout)
+    # PHASE 3: POST-INFERENCE PERSISTENCE (~5ms DB checkout, disconnect-safe)
     # ==============================================================================
+    # Wrapped in try/finally with asyncio.shield(self._persist_assistant(...))
+    # so partial replies are still persisted if the client disconnects mid-stream.
     full_response_text = "".join(full_response_chunks)
     assistant_message_id = None
 
@@ -483,7 +488,7 @@ flowchart LR
    - Built entirely on pure-Python libraries (`fpdf2` & `pypdf`), eliminating native system dependencies like Cairo, Pango, or headless Chrome.
 
 3. **Secure PDF File Delivery Endpoint (`GET /api/v1/chats/files/pdf/{filename}`)**:
-   - Protected endpoint requiring user authentication via `Authorization: Bearer <token>` or `?token=<token>` query parameter.
+   - Protected endpoint requiring user authentication via the `Authorization: Bearer <token>` header (session revocation is enforced in PostgreSQL via `users.tokens_valid_after`) and verifying session ownership of the generated file.
    - Enforces strict canonical path verification (`os.path.commonpath`) to prevent directory traversal attacks.
    - Streams PDF content via Starlette `FileResponse` with `application/pdf` MIME type.
 
