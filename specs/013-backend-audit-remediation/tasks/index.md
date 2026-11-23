@@ -16,7 +16,7 @@
 | `task-12` | Enforce hierarchy on unban | MEDIUM | 04 | `Completed` | [`task-12-unban-hierarchy.md`](./task-12-unban-hierarchy.md) |
 | `task-13` | Harden the Redis connection pool | MEDIUM | 07 | `Completed` | [`task-13-redis-pool-hardening.md`](./task-13-redis-pool-hardening.md) |
 | `task-14` | Make the chat cache an atomic bounded list | MEDIUM | 11 | `Completed` | [`task-14-atomic-chat-cache.md`](./task-14-atomic-chat-cache.md) |
-| `task-15` | Accept JWTs only from the Authorization header | MEDIUM | 07 | `Pending` | [`task-15-header-only-jwt.md`](./task-15-header-only-jwt.md) |
+| `task-15` | Accept JWTs only from the Authorization header | MEDIUM | 07 | `Completed` | [`task-15-header-only-jwt.md`](./task-15-header-only-jwt.md) |
 | `task-16` | Bound chat queries with pagination and windowed context | MEDIUM | 03 | `Pending` | [`task-16-bounded-chat-queries.md`](./task-16-bounded-chat-queries.md) |
 | `task-17` | Bound avatar uploads | MEDIUM | 06, 01 | `Pending` | [`task-17-bounded-avatar-upload.md`](./task-17-bounded-avatar-upload.md) |
 | `task-18` | Remove account-enumeration timing signals | MEDIUM | 10 | `Pending` | [`task-18-enumeration-timing.md`](./task-18-enumeration-timing.md) |

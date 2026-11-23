@@ -2,7 +2,7 @@
 import uuid
 from collections.abc import Callable
 
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,8 +16,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 
 async def get_current_user(
-    header_token: str | None = Depends(oauth2_scheme),
-    query_token: str | None = Query(None, alias="token"),
+    token: str | None = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> UserModel:
     credentials_exception = HTTPException(
@@ -26,7 +25,6 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    token = header_token or query_token
     if not token:
         raise credentials_exception
 

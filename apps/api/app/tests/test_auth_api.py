@@ -164,3 +164,20 @@ async def test_register_password_length_validation(client: httpx.AsyncClient):
         json={"email": "long@example.com", "password": "a" * 129},
     )
     assert long_res.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_get_me_rejects_query_param_token(client: httpx.AsyncClient):
+    """Protected endpoints must reject JWTs passed via ?token= query parameter."""
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": "querytoken@example.com", "password": "securepassword123"},
+    )
+    login_res = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "querytoken@example.com", "password": "securepassword123"},
+    )
+    token = login_res.json()["access_token"]
+
+    res = await client.get(f"/api/v1/auth/me?token={token}")
+    assert res.status_code == status.HTTP_401_UNAUTHORIZED

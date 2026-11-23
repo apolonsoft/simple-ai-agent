@@ -133,27 +133,24 @@ async def test_download_pdf_success(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_download_pdf_success_via_query_param(client: httpx.AsyncClient):
-    """Verify that user can download a generated PDF using ?token= query parameter without Authorization header."""
+async def test_download_pdf_query_param_token_rejected(client: httpx.AsyncClient):
+    """Query parameter ?token= must be rejected; only Authorization header is accepted."""
     token = await get_auth_token(client, "pdf_query_token@example.com")
 
     raw_res = create_pdf(
         title="Query Param Test Document",
-        content="Testing download via URL query parameter for browser direct navigation.",
+        content="Testing download via URL query parameter is rejected.",
         filename="test_query_token_doc.pdf",
     )
     data = json.loads(raw_res)
     assert data["status"] == "success"
     filename = data["filename"]
 
-    # Record ownership in user's chat message
     await associate_file_with_user(client, token, filename)
 
-    # Request with ?token= query parameter and NO Authorization header
+    # Request with ?token= query parameter and NO Authorization header must fail with 401
     download_res = await client.get(f"/api/v1/chats/files/pdf/{filename}?token={token}")
-    assert download_res.status_code == status.HTTP_200_OK
-    assert "application/pdf" in download_res.headers.get("content-type", "")
-    assert download_res.content.startswith(b"%PDF")
+    assert download_res.status_code == status.HTTP_401_UNAUTHORIZED
 
     file_path = os.path.join(_get_output_dir(), filename)
     if os.path.exists(file_path):
