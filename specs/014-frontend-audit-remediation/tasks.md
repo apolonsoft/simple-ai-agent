@@ -3,7 +3,7 @@
 Execute strictly one task at a time per `.agent/rules/task-by-task.md` and `.agent/rules/task-documentation.md`.
 
 - [x] Task 01: Extract Pure SSE Parser & Admin Permission Utilities (`tasks/task-01-refactor-sse-and-admin-helpers.md`)
-- [ ] Task 02: Remove `bypassSecurityTrustHtml` & Optimize `MarkdownPipe` Highlighting (`tasks/task-02-sanitize-and-optimize-markdown-pipe.md`)
+- [x] Task 02: Remove `bypassSecurityTrustHtml` & Optimize `MarkdownPipe` Highlighting (`tasks/task-02-sanitize-and-optimize-markdown-pipe.md`)
 - [ ] Task 03: Fix Chat Stream Races, Session Switching, 401 Handling & Duplicate Loads (`tasks/task-03-harden-chat-streaming-and-sessions.md`)
 - [ ] Task 04: Harden Auth Bootstrap, Token Expiry & Multi-Store Logout Reset (`tasks/task-04-auth-bootstrap-and-logout-isolation.md`)
 - [ ] Task 05: Add Debounced `switchMap` Search & Granular Loading in Admin List (`tasks/task-05-admin-list-search-and-loading.md`)

@@ -217,7 +217,7 @@ export class ChatWindowComponent implements AfterViewInit, OnDestroy {
 
   onMessagesClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
-    const copyBtn = target.closest('.copy-code-btn') as HTMLButtonElement | null;
+    const copyBtn = target.closest('.copy-code-btn') as HTMLElement | null;
     if (!copyBtn) return;
 
     const container = copyBtn.closest('.code-container');

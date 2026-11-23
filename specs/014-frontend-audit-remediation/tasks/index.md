@@ -3,7 +3,7 @@
 | Task ID | Name | Severity | Audit Findings | Status | Spec File |
 |---|---|---|---|---|---|
 | `task-01` | Extract Pure SSE Parser & Admin Permission Utilities | Refactor | Prep for #2, #4, #18, #21 | `Completed` | [`task-01-refactor-sse-and-admin-helpers.md`](./task-01-refactor-sse-and-admin-helpers.md) |
-| `task-02` | Remove `bypassSecurityTrustHtml` & Optimize `MarkdownPipe` Highlighting | CRITICAL / HIGH | #1, #6 | `Pending` | [`task-02-sanitize-and-optimize-markdown-pipe.md`](./task-02-sanitize-and-optimize-markdown-pipe.md) |
+| `task-02` | Remove `bypassSecurityTrustHtml` & Optimize `MarkdownPipe` Highlighting | CRITICAL / HIGH | #1, #6 | `Completed` | [`task-02-sanitize-and-optimize-markdown-pipe.md`](./task-02-sanitize-and-optimize-markdown-pipe.md) |
 | `task-03` | Fix Chat Stream Races, Session Switching, 401 Handling & Duplicate Loads | HIGH / MEDIUM | #2, #4, #6, #9, #12, #21 | `Pending` | [`task-03-harden-chat-streaming-and-sessions.md`](./task-03-harden-chat-streaming-and-sessions.md) |
 | `task-04` | Harden Auth Bootstrap, Token Expiry & Multi-Store Logout Reset | HIGH | #5, #7 | `Pending` | [`task-04-auth-bootstrap-and-logout-isolation.md`](./task-04-auth-bootstrap-and-logout-isolation.md) |
 | `task-05` | Add Debounced `switchMap` Search & Granular Loading in Admin List | HIGH / MEDIUM | #3, #11 | `Pending` | [`task-05-admin-list-search-and-loading.md`](./task-05-admin-list-search-and-loading.md) |

@@ -1,6 +1,6 @@
 ### Task 02: Remove `bypassSecurityTrustHtml` & Optimize `MarkdownPipe` Highlighting
 
-- [ ] Pending
+- [x] Completed
 
 #### Full Description
 **CRITICAL + HIGH (Audit Findings #1 & #6).**

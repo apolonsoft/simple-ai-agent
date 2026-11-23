@@ -348,4 +348,33 @@ describe('ChatWindowComponent', () => {
     fixture.detectChanges();
     expect(compiled.querySelector('.tools-popover')).toBeFalsy();
   });
+
+  it('should sanitize dangerous HTML in assistant markdown and preserve copy-code-btn click behavior', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: writeTextMock },
+      configurable: true,
+    });
+
+    fixture.componentRef.setInput('sessionId', 'session-42');
+    messagesSignal.set([
+      {
+        role: 'assistant',
+        content: '<img src=x onerror=alert(1)>\n\n```python\nprint("hi")\n```',
+      },
+    ]);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const markdownBody = compiled.querySelector('.markdown-body');
+    expect(markdownBody).toBeTruthy();
+    expect(markdownBody?.querySelector('img')).toBeFalsy();
+
+    const copyBtn = markdownBody?.querySelector('.copy-code-btn') as HTMLElement;
+    expect(copyBtn).toBeTruthy();
+    copyBtn.click();
+    await Promise.resolve();
+
+    expect(writeTextMock).toHaveBeenCalledWith('print("hi")');
+  });
 });
