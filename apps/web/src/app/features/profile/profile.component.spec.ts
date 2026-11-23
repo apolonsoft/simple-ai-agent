@@ -236,4 +236,19 @@ describe('ProfileComponent', () => {
     expect(component.isChangingPassword()).toBe(false);
     expect(component.passwordErrorMessage()).toBe('Current password is incorrect.');
   });
+
+  it('should only display passwordMismatch error after confirm_password is touched or dirty', () => {
+    component.passwordForm.patchValue({
+      current_password: 'CurrentPassword123',
+      new_password: 'NewPassword123!',
+      confirm_password: 'DifferentPassword456!',
+    });
+    component.passwordForm.get('current_password')?.markAsTouched();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Passwords do not match.');
+
+    component.passwordForm.get('confirm_password')?.markAsTouched();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Passwords do not match.');
+  });
 });

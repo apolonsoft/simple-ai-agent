@@ -1,7 +1,9 @@
+import { UserRole } from './admin.model';
+
 export interface User {
   id: string;
   email: string;
-  role: string;
+  role: UserRole;
   is_active: boolean;
   full_name?: string | null;
   avatar_url?: string | null;
@@ -23,7 +25,6 @@ export interface TokenResponse {
 export interface RegisterRequest {
   email: string;
   password: string;
-  role?: string;
 }
 
 export interface ForgotPasswordRequest {

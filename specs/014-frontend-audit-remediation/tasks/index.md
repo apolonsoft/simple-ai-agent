@@ -11,4 +11,4 @@
 | `task-07` | Replace Scroll `MutationObserver` & Timer Cascade with Smart rAF Auto-Scroll | HIGH | #8 | `Completed` | [`task-07-smart-chat-scroll.md`](./task-07-smart-chat-scroll.md) |
 | `task-08` | Enable `OnPush` Everywhere & Replace Template Method Calls with Pure Pipes | MEDIUM | #13, #14, #23 | `Completed` | [`task-08-onpush-and-pure-pipes.md`](./task-08-onpush-and-pure-pipes.md) |
 | `task-09` | Bundle Local PDF.js Worker, Surface Chat/PDF Errors & Clean Up Timers | MEDIUM / LOW | #15, #16, #17, #22 | `Completed` | [`task-09-pdf-worker-errors-and-timers.md`](./task-09-pdf-worker-errors-and-timers.md) |
-| `task-10` | Enable Strict TypeScript, Unify Form Validators & Sync Shared Contracts | LOW / Gate | #19, #20, #24 | `Pending` | [`task-10-strict-ts-validators-and-contracts.md`](./task-10-strict-ts-validators-and-contracts.md) |
+| `task-10` | Enable Strict TypeScript, Unify Form Validators & Sync Shared Contracts | LOW / Gate | #19, #20, #24 | `Completed` | [`task-10-strict-ts-validators-and-contracts.md`](./task-10-strict-ts-validators-and-contracts.md) |
